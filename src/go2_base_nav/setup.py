@@ -26,6 +26,10 @@ setup(
             glob("config/*.yaml"),
         ),
         (
+            os.path.join("share", package_name, "behavior_trees"),
+            glob("behavior_trees/*.xml"),
+        ),
+        (
             os.path.join("share", package_name, "rviz"),
             glob("rviz/*.rviz"),
         ),

@@ -57,7 +57,7 @@ def test_costmaps_use_exact_footprint_and_scan_obstacles():
         assert obstacle["observation_sources"] == "scan"
         assert obstacle["scan"]["topic"] == "/scan"
         assert obstacle["scan"]["data_type"] == "LaserScan"
-        assert params["inflation_layer"]["inflation_radius"] == 0.25
+        assert params["inflation_layer"]["inflation_radius"] == 0.35
         assert params["inflation_layer"]["cost_scaling_factor"] == 5.0
 
 

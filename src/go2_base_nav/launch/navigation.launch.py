@@ -8,6 +8,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from nav2_common.launch import RewrittenYaml
 
 
 def generate_launch_description():
@@ -19,6 +20,24 @@ def generate_launch_description():
         get_package_share_directory("nav2_bringup"),
         "launch",
         "bringup_launch.py",
+    )
+    nav_to_pose_bt = (
+        package_root / "behavior_trees" / "navigate_to_pose_go2.xml"
+    )
+    nav_through_poses_bt = (
+        package_root / "behavior_trees" / "navigate_through_poses_go2.xml"
+    )
+    configured_nav2_params = RewrittenYaml(
+        source_file=str(nav2_params),
+        param_rewrites={
+            "bt_navigator.ros__parameters.default_nav_to_pose_bt_xml": str(
+                nav_to_pose_bt
+            ),
+            "bt_navigator.ros__parameters.default_nav_through_poses_bt_xml": str(
+                nav_through_poses_bt
+            ),
+        },
+        convert_types=True,
     )
 
     map_yaml = LaunchConfiguration("map")
@@ -41,7 +60,7 @@ def generate_launch_description():
                 PythonLaunchDescriptionSource(nav2_launch),
                 launch_arguments={
                     "map": map_yaml,
-                    "params_file": str(nav2_params),
+                    "params_file": configured_nav2_params,
                     "slam": "False",
                     "use_sim_time": use_sim_time,
                     "autostart": "True",

@@ -9,12 +9,18 @@ def test_package_declares_runtime_dependencies():
     root = ET.parse(PACKAGE_ROOT / "package.xml").getroot()
     dependencies = {item.text for item in root.findall("exec_depend")}
     assert {
+        "ament_index_python",
         "geometry_msgs",
         "launch",
         "launch_ros",
         "nav_msgs",
         "nav2_bringup",
+        "nav2_collision_monitor",
+        "nav2_common",
         "nav2_map_server",
+        "nav2_regulated_pure_pursuit_controller",
+        "nav2_rviz_plugins",
+        "nav2_velocity_smoother",
         "pointcloud_to_laserscan",
         "rclpy",
         "rviz2",

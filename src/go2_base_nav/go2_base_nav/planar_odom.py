@@ -1,5 +1,6 @@
 from copy import deepcopy
 from math import isfinite
+import signal
 from typing import Iterable
 
 import rclpy
@@ -12,6 +13,7 @@ from rclpy.qos import (
     QoSProfile,
     ReliabilityPolicy,
 )
+from rclpy.signals import SignalHandlerOptions
 from tf2_ros import TransformBroadcaster
 
 from go2_base_nav.pose_math import QuaternionValue, split_planar_orientation
@@ -141,12 +143,18 @@ class PlanarOdomNode(Node):
 
 
 def main(args=None) -> None:
-    rclpy.init(args=args)
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     node = PlanarOdomNode()
     try:
-        rclpy.spin(node)
+        while rclpy.ok():
+            rclpy.spin_once(node, timeout_sec=0.1)
     except KeyboardInterrupt:
-        pass
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        try:
+            node.destroy_node()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if rclpy.ok():
+                rclpy.shutdown()

@@ -1,8 +1,10 @@
 from math import isfinite
+import signal
 
 import rclpy
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
+from rclpy.signals import SignalHandlerOptions
 
 from go2_base_nav.command_safety import (
     MotionCommand,
@@ -86,20 +88,28 @@ class Go2CmdVelBridge(Node):
             self._sport_client.stop_move()
 
     def destroy_node(self) -> bool:
-        try:
-            self._sport_client.stop_move()
-        except Exception as error:  # noqa: BLE001 - shutdown must continue safely
-            self.get_logger().error(f"Failed to send final StopMove: {error}")
+        if rclpy.ok():
+            try:
+                self._sport_client.stop_move()
+            except Exception as error:  # noqa: BLE001 - shutdown must continue safely
+                if rclpy.ok():
+                    self.get_logger().error(f"Failed to send final StopMove: {error}")
         return super().destroy_node()
 
 
 def main(args=None) -> None:
-    rclpy.init(args=args)
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     node = Go2CmdVelBridge()
     try:
-        rclpy.spin(node)
+        while rclpy.ok():
+            rclpy.spin_once(node, timeout_sec=0.1)
     except KeyboardInterrupt:
-        pass
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        try:
+            node.destroy_node()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if rclpy.ok():
+                rclpy.shutdown()
