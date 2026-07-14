@@ -32,7 +32,7 @@ def test_testing_runbook_covers_real_robot_safety_cases():
     testing = (REPOSITORY_ROOT / "docs" / "TESTING.md").read_text()
     for required_text in (
         "0.4 m/s",
-        "0.4 rad/s",
+        "0.4-0.6 rad/s",
         "实体遥控器",
         "椅子",
         "/scan",

@@ -166,15 +166,18 @@ The controller speed envelope follows the real-robot requirement:
 - maximum forward linear velocity: `0.4 m/s`;
 - commanded nonzero forward walking range: `0.30-0.40 m/s`, because the robot
   does not walk below `0.30 m/s`;
-- maximum angular velocity: `0.4 rad/s`;
+- effective nonzero angular velocity magnitude: `0.4-0.6 rad/s`, because
+  smaller yaw commands do not turn this robot reliably;
 - lateral velocity: `0.0 m/s` for this first version.
 
-The bridge does not raise arbitrary tiny commands to `0.30 m/s`, because doing so near a goal could create an unexpected jump.
-Instead, Regulated Pure Pursuit uses a `0.30 m/s` minimum approach speed, a
-`0.40 m/s` desired speed, and a `0.25 m` goal tolerance that permits a direct
-stop. The velocity smoother may briefly
-cross the lower range during acceleration and deceleration; the final zero
-command still produces an explicit StopMove request.
+The bridge does not raise arbitrary tiny linear commands to `0.30 m/s`, because
+doing so near a goal could create an unexpected jump. Instead, Regulated Pure
+Pursuit uses a `0.30 m/s` minimum approach speed, a `0.40 m/s` desired speed,
+and a `0.25 m` goal tolerance that permits a direct stop. The velocity smoother
+may briefly cross the lower linear range during acceleration and deceleration.
+The bridge raises yaw commands below `0.4 rad/s` to the signed minimum and
+clamps commands above `0.6 rad/s` to the signed maximum, while preserving an
+exact zero so stopping remains deterministic.
 
 The costmaps use a conservative rectangular footprint of exactly
 `0.80 m x 0.50 m` (half extents `0.40 m x 0.25 m`) to cover the body and normal
@@ -194,8 +197,8 @@ Nav2 controller -> cmd_vel_nav -> velocity smoother
 
 Safety behavior is deterministic:
 
-- the bridge clamps linear x and angular z to `0.4` and clamps linear y to
-  zero;
+- the bridge clamps linear x to `0.4`, maps every nonzero angular z command into
+  the signed `0.4-0.6` range, preserves exact zero, and clamps linear y to zero;
 - a `0.5 s` bridge command timeout sends StopMove;
 - receiving a zero command sends StopMove once;
 - shutting down the bridge sends StopMove;
@@ -277,8 +280,9 @@ wrappers so their safety-critical behavior can be tested without hardware.
    recompose to the original 3D orientation within numeric tolerance.
 2. Odometry tests prove that planar output has zero z/roll/pitch, preserves
    x/y/yaw and timestamps, and uses the required frame names.
-3. Command-safety tests prove clamping to `0.4 m/s`, `0.0 m/s` lateral, and
-   `0.4 rad/s`, plus zero/timeout/shutdown StopMove behavior.
+3. Command-safety tests prove clamping to `0.4 m/s`, `0.0 m/s` lateral, and the
+   `0.4-0.6 rad/s` effective angular range, plus zero/timeout/shutdown StopMove
+   behavior.
 4. Launch/config tests load every launch file and YAML file and verify the
    required topics, frames, speed limits, and safety timeouts.
 5. `colcon build`, `colcon test`, and `colcon test-result --verbose` must finish
@@ -313,7 +317,7 @@ The first version is accepted when all of the following are true:
 - one navigation launch localizes the GO2 on the saved map and accepts RViz
   goals;
 - the GO2 follows a collision-free path around representative furniture;
-- commanded speed never exceeds `0.4 m/s` linear or `0.4 rad/s` angular and no
+- commanded speed never exceeds `0.4 m/s` linear or `0.6 rad/s` angular and no
   lateral command is sent;
 - a zero command, stale command, scan loss, or node shutdown results in a
   StopMove request; and

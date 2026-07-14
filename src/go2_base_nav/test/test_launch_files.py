@@ -97,5 +97,6 @@ def test_navigation_launch_requires_map_and_starts_safe_bridge():
     assert ("rviz2", "rviz2") in node_pairs
     assert '"max_linear_x": 0.4' in launch_text
     assert '"max_linear_y": 0.0' in launch_text
-    assert '"max_angular_z": 0.4' in launch_text
+    assert '"max_angular_z": 0.6' in launch_text
+    assert '"min_angular_z": 0.4' in launch_text
     assert '"cmd_timeout": 0.5' in launch_text

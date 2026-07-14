@@ -77,7 +77,8 @@ def generate_launch_description():
                     {
                         "max_linear_x": 0.4,
                         "max_linear_y": 0.0,
-                        "max_angular_z": 0.4,
+                        "max_angular_z": 0.6,
+                        "min_angular_z": 0.4,
                         "cmd_timeout": 0.5,
                         "use_sim_time": use_sim_time,
                     }

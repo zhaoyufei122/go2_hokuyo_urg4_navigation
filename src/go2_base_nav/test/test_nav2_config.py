@@ -29,13 +29,13 @@ def test_navigation_frames_controller_and_speed_limits():
     assert controller["FollowPath"]["desired_linear_vel"] == 0.4
     assert controller["FollowPath"]["min_approach_linear_velocity"] == 0.3
     assert controller["FollowPath"]["regulated_linear_scaling_min_speed"] == 0.3
-    assert controller["FollowPath"]["rotate_to_heading_angular_vel"] == 0.4
+    assert controller["FollowPath"]["rotate_to_heading_angular_vel"] == 0.6
     assert controller["FollowPath"]["use_cost_regulated_linear_velocity_scaling"] is False
     assert controller["FollowPath"]["allow_reversing"] is False
     assert controller["general_goal_checker"]["xy_goal_tolerance"] == 0.25
     assert controller["general_goal_checker"]["yaw_goal_tolerance"] == 0.25
-    assert smoother["max_velocity"] == [0.4, 0.0, 0.4]
-    assert smoother["min_velocity"] == [-0.4, 0.0, -0.4]
+    assert smoother["max_velocity"] == [0.4, 0.0, 0.6]
+    assert smoother["min_velocity"] == [-0.4, 0.0, -0.6]
     assert smoother["velocity_timeout"] == 0.5
     assert collision["source_timeout"] == 0.5
     assert collision["StopZone"]["action_type"] == "stop"
@@ -64,5 +64,5 @@ def test_costmaps_use_exact_footprint_and_scan_obstacles():
 def test_recovery_rotation_respects_go2_limit():
     behavior = _config()["behavior_server"]["ros__parameters"]
     assert behavior["robot_base_frame"] == "base_footprint"
-    assert behavior["max_rotational_vel"] == 0.4
+    assert behavior["max_rotational_vel"] == 0.6
     assert behavior["min_rotational_vel"] == 0.4

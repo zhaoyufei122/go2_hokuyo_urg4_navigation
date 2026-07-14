@@ -15,14 +15,28 @@ def test_clamp_enforces_real_robot_limits():
     command = clamp_command(0.9, 0.5, -0.8, MotionLimits())
     assert command.linear_x == 0.4
     assert command.linear_y == 0.0
-    assert command.angular_z == -0.4
+    assert command.angular_z == -0.6
 
 
 def test_clamp_handles_negative_limits_and_zero():
     command = clamp_command(-0.9, -0.5, 0.8, MotionLimits())
-    assert command == MotionCommand(-0.4, 0.0, 0.4)
+    assert command == MotionCommand(-0.4, 0.0, 0.6)
     assert is_zero_command(clamp_command(0.0, 0.0, 0.0, MotionLimits()))
     assert not is_zero_command(command)
+
+
+@pytest.mark.parametrize(
+    ("requested_angular_z", "expected_angular_z"),
+    [(0.05, 0.4), (-0.05, -0.4)],
+)
+def test_clamp_promotes_nonzero_angular_velocity_to_go2_minimum(
+    requested_angular_z,
+    expected_angular_z,
+):
+    command = clamp_command(0.35, 0.0, requested_angular_z, MotionLimits())
+
+    assert command.linear_x == 0.35
+    assert command.angular_z == expected_angular_z
 
 
 @pytest.mark.parametrize("value", [nan, inf, -inf])

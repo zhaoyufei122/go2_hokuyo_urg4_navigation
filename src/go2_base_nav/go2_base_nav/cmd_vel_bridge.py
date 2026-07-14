@@ -24,7 +24,8 @@ class Go2CmdVelBridge(Node):
         self.declare_parameter("cmd_timeout", 0.5)
         self.declare_parameter("max_linear_x", 0.4)
         self.declare_parameter("max_linear_y", 0.0)
-        self.declare_parameter("max_angular_z", 0.4)
+        self.declare_parameter("max_angular_z", 0.6)
+        self.declare_parameter("min_angular_z", 0.4)
 
         self._timeout = float(self.get_parameter("cmd_timeout").value)
         if not isfinite(self._timeout) or self._timeout <= 0.0:
@@ -33,6 +34,7 @@ class Go2CmdVelBridge(Node):
             max_linear_x=float(self.get_parameter("max_linear_x").value),
             max_linear_y=float(self.get_parameter("max_linear_y").value),
             max_angular_z=float(self.get_parameter("max_angular_z").value),
+            min_angular_z=float(self.get_parameter("min_angular_z").value),
         )
         self._watchdog = WatchdogState()
         self._sport_client = Go2SportClient(

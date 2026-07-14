@@ -6,12 +6,20 @@ from math import isfinite
 class MotionLimits:
     max_linear_x: float = 0.4
     max_linear_y: float = 0.0
-    max_angular_z: float = 0.4
+    max_angular_z: float = 0.6
+    min_angular_z: float = 0.4
 
     def __post_init__(self) -> None:
-        values = (self.max_linear_x, self.max_linear_y, self.max_angular_z)
+        values = (
+            self.max_linear_x,
+            self.max_linear_y,
+            self.max_angular_z,
+            self.min_angular_z,
+        )
         if not all(isfinite(value) and value >= 0.0 for value in values):
             raise ValueError("motion limits must be finite and non-negative")
+        if self.min_angular_z > self.max_angular_z:
+            raise ValueError("minimum angular velocity cannot exceed maximum")
 
 
 @dataclass(frozen=True)
@@ -25,6 +33,12 @@ def _clamp(value: float, maximum: float) -> float:
     return max(-maximum, min(maximum, value))
 
 
+def _enforce_minimum_magnitude(value: float, minimum: float) -> float:
+    if value == 0.0 or abs(value) >= minimum:
+        return value
+    return minimum if value > 0.0 else -minimum
+
+
 def clamp_command(
     linear_x: float,
     linear_y: float,
@@ -35,10 +49,14 @@ def clamp_command(
     if not all(isfinite(value) for value in values):
         raise ValueError("motion command values must be finite")
 
+    clamped_angular_z = _clamp(angular_z, limits.max_angular_z)
     return MotionCommand(
         linear_x=_clamp(linear_x, limits.max_linear_x),
         linear_y=_clamp(linear_y, limits.max_linear_y),
-        angular_z=_clamp(angular_z, limits.max_angular_z),
+        angular_z=_enforce_minimum_magnitude(
+            clamped_angular_z,
+            limits.min_angular_z,
+        ),
     )
 
 
