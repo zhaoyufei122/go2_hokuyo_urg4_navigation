@@ -94,6 +94,11 @@ normal leg envelope but does not discard furniture merely because it is below
 the LiDAR. RTAB-Map additionally applies a `0.25 m` minimum and `8.0 m` maximum
 scan range.
 
+RTAB-Map reads odometry from TF by setting its nonempty
+`odom_frame_id=odom`; it does not consume the planar `/odom` message. This is
+important because the TF lookup from `odom` to `base_link` traverses both
+transforms above and therefore retains z, roll, and pitch for 3D registration.
+
 The 0.08 m voxel size and 1 Hz graph update are conservative desktop-load
 defaults for the first household test. They preserve chair legs and table
 edges while avoiding the full 15 Hz point-cloud load in the graph optimizer.
