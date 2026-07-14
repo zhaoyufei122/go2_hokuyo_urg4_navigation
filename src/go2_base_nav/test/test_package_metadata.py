@@ -21,14 +21,22 @@ def test_package_declares_runtime_dependencies():
         "nav2_regulated_pure_pursuit_controller",
         "nav2_rviz_plugins",
         "nav2_velocity_smoother",
+        "pcl_ros",
         "pointcloud_to_laserscan",
+        "rclcpp_components",
         "rclpy",
+        "rtabmap_slam",
+        "rtabmap_viz",
         "rviz2",
         "sensor_msgs",
         "slam_toolbox",
         "tf2_ros",
         "unitree_api",
     } <= dependencies
+
+    description = root.findtext("description", default="")
+    assert "2D navigation" in description
+    assert "3D mapping" in description
 
 
 def test_setup_installs_launch_config_and_rviz_assets():
@@ -38,3 +46,4 @@ def test_setup_installs_launch_config_and_rviz_assets():
     assert 'glob("launch/*.launch.py")' in setup_text
     assert 'glob("config/*.yaml")' in setup_text
     assert 'glob("rviz/*.rviz")' in setup_text
+    assert "2D navigation and 3D mapping" in setup_text

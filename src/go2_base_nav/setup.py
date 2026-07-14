@@ -38,7 +38,7 @@ setup(
     zip_safe=True,
     maintainer="yufei",
     maintainer_email="xjtuzhaozhao@gmail.com",
-    description="Safe 2D mapping and navigation bringup for a real Unitree GO2.",
+    description="Safe 2D navigation and 3D mapping bringup for a real Unitree GO2.",
     license="MIT",
     tests_require=["pytest"],
     entry_points={
