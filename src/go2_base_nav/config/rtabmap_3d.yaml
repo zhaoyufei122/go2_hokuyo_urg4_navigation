@@ -1,0 +1,94 @@
+cloud_self_filter:
+  ros__parameters:
+    input_frame: base_link
+    output_frame: base_link
+    max_queue_size: 5
+    use_indices: false
+    negative: true
+    keep_organized: false
+    min_x: -0.45
+    max_x: 0.45
+    min_y: -0.32
+    max_y: 0.32
+    min_z: -0.45
+    max_z: 0.30
+
+cloud_voxel_filter:
+  ros__parameters:
+    input_frame: base_link
+    output_frame: base_link
+    max_queue_size: 5
+    use_indices: false
+    negative: false
+    keep_organized: false
+    leaf_size: 0.08
+
+rtabmap:
+  ros__parameters:
+    use_sim_time: false
+    frame_id: base_link
+    odom_frame_id: odom
+    map_frame_id: map_3d
+    publish_tf: true
+    wait_for_transform: 0.2
+    odom_sensor_sync: true
+    topic_queue_size: 10
+    sync_queue_size: 10
+    qos_scan: 2
+
+    subscribe_depth: false
+    subscribe_rgb: false
+    subscribe_rgbd: false
+    subscribe_stereo: false
+    subscribe_scan: false
+    subscribe_scan_cloud: true
+    subscribe_odom_info: false
+
+    Reg/Strategy: "1"
+    Reg/Force3DoF: "false"
+    Icp/Strategy: "1"
+    Icp/PointToPlane: "true"
+    Icp/Iterations: "10"
+    Icp/PointToPlaneK: "20"
+    Icp/PointToPlaneRadius: "0"
+    Icp/VoxelSize: "0.08"
+    Icp/MaxCorrespondenceDistance: "0.30"
+    Icp/CorrespondenceRatio: "0.05"
+    Icp/OutlierRatio: "0.7"
+
+    Rtabmap/DetectionRate: "1.0"
+    RGBD/AngularUpdate: "0.05"
+    RGBD/LinearUpdate: "0.05"
+    RGBD/NeighborLinkRefining: "true"
+    RGBD/ProximityBySpace: "true"
+    RGBD/ProximityMaxGraphDepth: "0"
+    RGBD/ProximityPathMaxNeighbors: "1"
+    Mem/NotLinkedNodesKept: "false"
+    Mem/STMSize: "30"
+
+    RGBD/CreateOccupancyGrid: "true"
+    Grid/3D: "true"
+    Grid/Sensor: "0"
+    Grid/CellSize: "0.08"
+    Grid/RangeMin: "0.25"
+    Grid/RangeMax: "8.0"
+    Grid/NormalsSegmentation: "false"
+    Grid/RayTracing: "true"
+
+rtabmap_viz:
+  ros__parameters:
+    use_sim_time: false
+    frame_id: base_link
+    odom_frame_id: odom
+    wait_for_transform: 0.2
+    topic_queue_size: 10
+    sync_queue_size: 10
+    qos_scan: 2
+
+    subscribe_depth: false
+    subscribe_rgb: false
+    subscribe_rgbd: false
+    subscribe_stereo: false
+    subscribe_scan: false
+    subscribe_scan_cloud: true
+    subscribe_odom_info: false
