@@ -39,3 +39,37 @@ def test_testing_runbook_covers_real_robot_safety_cases():
         "StopMove",
     ):
         assert required_text in testing
+
+
+def test_readme_documents_complete_3d_mapping_workflow():
+    readme = (REPOSITORY_ROOT / "README.md").read_text()
+    for required_text in (
+        "sudo apt install ros-jazzy-rtabmap-ros ros-jazzy-pcl-ros",
+        "mapping_3d.launch.py",
+        "/home/yufei/Desktop/go2_base_navi/maps/room_3d.db",
+        "new_map:=true",
+        "new_map:=false",
+        "/cloud_3d_filtered",
+        "[-0.45, 0.45]",
+        "[-0.32, 0.32]",
+        "[-0.45, 0.30]",
+        "先调整机身裁剪框",
+        "实体遥控器",
+        "Ctrl-C",
+        "本版不做 3D 定位或自主导航",
+    ):
+        assert required_text in readme
+
+
+def test_testing_runbook_covers_3d_mapping_acceptance():
+    testing = (REPOSITORY_ROOT / "docs" / "TESTING.md").read_text()
+    for required_text in (
+        "3D 建图验收",
+        "/cloud_3d_filtered",
+        "机身点簇",
+        "桌面和椅腿",
+        "双墙",
+        "room_3d.db",
+        "没有软件运动指令",
+    ):
+        assert required_text in testing
