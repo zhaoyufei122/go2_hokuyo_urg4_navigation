@@ -1,15 +1,27 @@
+import importlib.util
 from pathlib import Path
 
 import yaml
+from launch.actions import DeclareLaunchArgument
+from launch_ros.actions import ComposableNodeContainer, Node
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = PACKAGE_ROOT / "config" / "rtabmap_3d.yaml"
+LAUNCH_PATH = PACKAGE_ROOT / "launch" / "mapping_3d.launch.py"
+REPOSITORY_ROOT = PACKAGE_ROOT.parents[1]
 
 
 def _load_parameters(node_name):
     config = yaml.safe_load(CONFIG_PATH.read_text())
     return config[node_name]["ros__parameters"]
+
+
+def _load_launch_description():
+    spec = importlib.util.spec_from_file_location("mapping_3d_launch", LAUNCH_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.generate_launch_description()
 
 
 def test_3d_cloud_filters_remove_self_and_preserve_environment():
@@ -83,3 +95,72 @@ def test_rtabmap_viz_matches_cloud_and_tf_inputs():
     assert parameters["frame_id"] == "base_link"
     assert parameters["odom_frame_id"] == "odom"
     assert parameters["qos_scan"] == 2
+
+
+def test_3d_mapping_launch_declares_operator_inputs_and_nodes():
+    description = _load_launch_description()
+    argument_names = {
+        action.name
+        for action in description.entities
+        if isinstance(action, DeclareLaunchArgument)
+    }
+    assert argument_names == {
+        "cloud_topic",
+        "database_path",
+        "new_map",
+        "robot_odom_topic",
+        "use_rtabmap_viz",
+        "use_sim_time",
+    }
+
+    node_pairs = [
+        (action.node_package, action.node_executable)
+        for action in description.entities
+        if isinstance(action, Node)
+    ]
+    assert node_pairs.count(("go2_base_nav", "planar_odom")) == 1
+    assert node_pairs.count(("rclcpp_components", "component_container_mt")) == 1
+    assert node_pairs.count(("rtabmap_slam", "rtabmap")) == 2
+    assert node_pairs.count(("rtabmap_viz", "rtabmap_viz")) == 1
+
+    containers = [
+        action
+        for action in description.entities
+        if isinstance(action, ComposableNodeContainer)
+    ]
+    assert len(containers) == 1
+
+
+def test_3d_mapping_launch_wires_filter_chain_and_database_modes():
+    launch_text = LAUNCH_PATH.read_text()
+    for required_text in (
+        "pcl_ros::CropBox",
+        "pcl_ros::VoxelGrid",
+        "/utlidar/cloud_deskewed",
+        "/cloud_3d_cropped",
+        "/cloud_3d_filtered",
+        '"scan_cloud", filtered_cloud_topic',
+        "--delete_db_on_start",
+        "IfCondition(new_map)",
+        "UnlessCondition(new_map)",
+        "/home/yufei/Desktop/go2_base_navi/maps/room_3d.db",
+    ):
+        assert required_text in launch_text
+
+
+def test_3d_mapping_launch_contains_no_motion_or_2d_navigation_stack():
+    launch_text = LAUNCH_PATH.read_text()
+    for forbidden_text in (
+        "sensors.launch.py",
+        "pointcloud_to_laserscan",
+        "nav2_bringup",
+        "cmd_vel",
+        "go2_cmd_vel_bridge",
+        "/api/sport/request",
+    ):
+        assert forbidden_text not in launch_text
+
+
+def test_3d_database_artifacts_are_ignored():
+    gitignore = (REPOSITORY_ROOT / ".gitignore").read_text()
+    assert "maps/*.db" in gitignore
