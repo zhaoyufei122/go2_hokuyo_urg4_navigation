@@ -63,3 +63,39 @@ def test_mapping_launch_includes_sensors_and_async_slam_without_control():
     }
     assert ("rviz2", "rviz2") in node_pairs
     assert ("go2_base_nav", "go2_cmd_vel_bridge") not in node_pairs
+
+
+def test_navigation_launch_requires_map_and_starts_safe_bridge():
+    path = PACKAGE_ROOT / "launch" / "navigation.launch.py"
+    launch_text = path.read_text()
+    assert "sensors.launch.py" in launch_text
+    assert "bringup_launch.py" in launch_text
+    assert '"slam": "False"' in launch_text
+
+    description = _load_launch_description("navigation.launch.py")
+    includes = [
+        action
+        for action in description.entities
+        if isinstance(action, IncludeLaunchDescription)
+    ]
+    assert len(includes) == 2
+
+    map_arguments = [
+        action
+        for action in description.entities
+        if isinstance(action, DeclareLaunchArgument) and action.name == "map"
+    ]
+    assert len(map_arguments) == 1
+    assert map_arguments[0].default_value is None
+
+    node_pairs = {
+        (action.node_package, action.node_executable)
+        for action in description.entities
+        if isinstance(action, Node)
+    }
+    assert ("go2_base_nav", "go2_cmd_vel_bridge") in node_pairs
+    assert ("rviz2", "rviz2") in node_pairs
+    assert '"max_linear_x": 0.4' in launch_text
+    assert '"max_linear_y": 0.0' in launch_text
+    assert '"max_angular_z": 0.4' in launch_text
+    assert '"cmd_timeout": 0.5' in launch_text
