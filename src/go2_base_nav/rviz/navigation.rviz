@@ -1,6 +1,8 @@
 Panels:
   - Class: rviz_common/Displays
     Name: Displays
+  - Class: nav2_rviz_plugins/Navigation 2
+    Name: Navigation 2
 Visualization Manager:
   Class: ""
   Displays:
