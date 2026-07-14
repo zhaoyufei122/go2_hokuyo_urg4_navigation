@@ -1,7 +1,7 @@
 import importlib.util
 from pathlib import Path
 
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.actions import Node
 
 
@@ -40,3 +40,26 @@ def test_sensors_launch_starts_planar_odom_and_projection():
         "scan_topic",
         "use_sim_time",
     } <= argument_names
+
+
+def test_mapping_launch_includes_sensors_and_async_slam_without_control():
+    path = PACKAGE_ROOT / "launch" / "mapping.launch.py"
+    launch_text = path.read_text()
+    assert "sensors.launch.py" in launch_text
+    assert "online_async_launch.py" in launch_text
+    assert "cmd_vel_bridge" not in launch_text
+
+    description = _load_launch_description("mapping.launch.py")
+    includes = [
+        action
+        for action in description.entities
+        if isinstance(action, IncludeLaunchDescription)
+    ]
+    assert len(includes) == 2
+    node_pairs = {
+        (action.node_package, action.node_executable)
+        for action in description.entities
+        if isinstance(action, Node)
+    }
+    assert ("rviz2", "rviz2") in node_pairs
+    assert ("go2_base_nav", "go2_cmd_vel_bridge") not in node_pairs
