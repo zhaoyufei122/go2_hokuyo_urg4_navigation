@@ -84,3 +84,34 @@ def test_testing_runbook_covers_3d_mapping_acceptance():
         "Mapping Path",
     ):
         assert required_text in testing
+
+
+def test_docs_cover_accurate_planar_mapping_and_offline_replay():
+    readme = (REPOSITORY_ROOT / "README.md").read_text()
+    testing = (REPOSITORY_ROOT / "docs" / "TESTING.md").read_text()
+
+    for required_text in (
+        "record_bag:=true",
+        "~/go2_mapping_bags",
+        "/cloud_self_filtered",
+        "0.12--0.45 m",
+        "0.25--6.0 m",
+        "ros2 bag play",
+        "--clock",
+        "record_bag:=false",
+        "/tf_static",
+        "room_map",
+    ):
+        assert required_text in readme
+
+    for required_text in (
+        "静止 30 秒",
+        "1--2 个 5 cm 栅格",
+        "0.10 m",
+        "扇形拖影",
+        "/cloud_self_filtered",
+        "rosbag",
+        "实体遥控器",
+        "没有软件运动指令",
+    ):
+        assert required_text in testing

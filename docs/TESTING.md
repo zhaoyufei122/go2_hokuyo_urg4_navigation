@@ -24,21 +24,30 @@ colcon test-result --verbose
 
 启动 `sensors.launch.py` 后依次检查：
 
-1. `/scan`：`timeout 10s ros2 topic hz /scan` 有连续、稳定频率。无消息、频率间歇
-   或大量 TF 丢帧均为失败。
-2. TF：`ros2 run tf2_ros tf2_echo odom base_footprint` 能连续解析；
+1. `timeout 10s ros2 topic hz /cloud_self_filtered` 有连续输出；RViz 中 GO2 身体
+   附近没有随机器人一起移动的机身点簇，地面不形成近距离圆环。
+2. `timeout 10s ros2 topic hz /scan` 有连续稳定频率；无消息、频率间歇或大量 TF
+   丢帧均为失败。
+3. `ros2 run tf2_ros tf2_echo odom base_footprint` 能连续解析，且
    `base_footprint` 的 z 为 0。
-3. 静止对齐：RViz 中 `/scan` 应贴合 `/utlidar/cloud_deskewed` 的家具边缘，静止
-   30 秒不应明显漂移或旋转。
-4. 旋转对齐：进入 mapping 模式后，用实体遥控器低速原地转一圈；墙面和桌椅
-   在 map 中应保持固定。出现扇形拖影、整帧跳动或方向相反为失败。
+4. 静止 30 秒，RViz 中固定墙壁不持续移动、旋转或加粗。
+5. 进入 mapping 模式后，用实体遥控器做一次受控转向；墙壁和柜体不应出现扇形拖影、
+   方向相反或整帧跳动。
+
+任一项失败都先停止，不进入建图路线。
 
 ## B. 建图与回环
 
-1. 用实体遥控器走一条闭环，覆盖桌子、椅子和通道两侧。
-2. 回到起点时，重复区域应重合，地图不应出现双墙或整体突然错位。
-3. 保存 `room_map`，确认 YAML 和 PGM 均存在且 YAML 能引用图像文件。
-4. 关闭 mapping，重新打开 PGM/YAML；轮廓、尺度和原点应合理。
+1. 启动 `mapping.launch.py record_bag:=true`，确认终端显示新的 rosbag 输出目录；
+   进程中必须没有软件运动指令、Nav2 或速度桥。
+2. 全程只用实体遥控器移动：先走外围闭环，确认地图未错误跳动，再走内部通道，
+   最后回到起点附近。
+3. 回环后主要墙体应保持 1--2 个 5 cm 栅格厚度，不应出现间距超过 0.10 m 的
+   持久双墙。
+4. 保存 `room_map`，确认 YAML 和 PGM 同时存在且 YAML 正确引用图像文件。
+5. 在建图终端按 Ctrl-C，等待 rosbag 正常结束；`ros2 bag info` 必须能读取元数据，
+   并列出原始点云、原始 odom、`/cloud_self_filtered`、`/scan`、`/map` 和 TF
+   话题。
 
 ## C. AMCL 与短距离导航
 

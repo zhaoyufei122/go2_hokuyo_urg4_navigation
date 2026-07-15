@@ -2,8 +2,8 @@
 
 本工作空间有两条互不混用的管线：
 
-- 二维管线把 GO2 的 `/utlidar/cloud_deskewed` 按高度切片投影为
-  `/scan`，用 SLAM Toolbox 建图，再用 AMCL + Nav2 导航；
+- 二维管线先裁掉 GO2 自身点，再把 `/utlidar/cloud_deskewed` 的稳定高度层
+  投影为 `/scan`，用 SLAM Toolbox 建图，再用 AMCL + Nav2 导航；
 - 三维管线裁掉 GO2 机身点、做 8 cm 体素降采样，再用 RTAB-Map 生成带回环
   优化的三维数据库和可交互点云地图。
 
@@ -22,6 +22,7 @@
 ```bash
 sudo apt install ros-jazzy-pointcloud-to-laserscan
 sudo apt install ros-jazzy-rtabmap-ros ros-jazzy-pcl-ros
+sudo apt install ros-jazzy-ros2bag
 ```
 
 每个新终端都必须先加载 Unitree 环境，再加载本工作空间。首次编译执行：
@@ -61,24 +62,58 @@ timeout 10s ros2 topic echo /odom --once --no-arr
 `base_footprint`，位置 z 为 0。检查完成后 Ctrl-C 停止 sensors，避免下一步重复
 启动同名节点。
 
-## 3. 建图
+## 3. 高精度二维建图
 
-确保实体遥控器在手边，机器狗周围留出安全空间。建图启动文件不会发送速度，
-走动完全由实体遥控器控制：
+二维传感器链先在 `base_link` 中删除 GO2 机身点，输出
+`/cloud_self_filtered`；随后在水平的 `base_footprint` 中保留高度
+`0.12--0.45 m`、距离 `0.25--6.0 m` 的 360 度墙壁和固定柜体结构，再生成
+`/scan`。SLAM Toolbox 使用平面 odom 预测和扫描匹配，地图位姿始终只包含
+x、y、yaw。
+
+建图启动文件不会发送速度，走动完全由实体遥控器控制。默认同步录包；启动前先确认
+录包磁盘空间：
 
 ```bash
-ros2 launch go2_base_nav mapping.launch.py
+mkdir -p ~/go2_mapping_bags
+df -h ~/go2_mapping_bags
+ros2 launch go2_base_nav mapping.launch.py record_bag:=true
 ```
 
-缓慢走遍平层环境，桌椅边缘至少从两个方向扫到，最后回到起点附近以触发回环。
+每次录包保存在 `~/go2_mapping_bags/YYYYMMDD_HHMMSS`，已有目录不会被覆盖。
+启动后先静止 30 秒，在 RViz 检查 `Filtered Cloud` 和 `/scan`：不应有随 GO2
+移动的机身点簇或地面圆环。然后用实体遥控器先走房间外围闭环，确认墙体没有重影，
+再覆盖内部通道，最后回到起点附近。
+
 在另一个正确 source 的终端保存地图：
 
 ```bash
 ros2 run nav2_map_server map_saver_cli -f /home/yufei/Desktop/go2_base_navi/maps/room_map
 ```
 
-确认同时生成 `maps/room_map.yaml` 与 `maps/room_map.pgm` 后，再在建图终端
-Ctrl-C。地图文件默认不提交到 Git。
+确认 `maps/room_map.yaml` 与 `maps/room_map.pgm` 已生成后，在建图终端按
+Ctrl-C，等待 rosbag 完成索引，再把实际时间戳代入检查：
+
+```bash
+ros2 bag info ~/go2_mapping_bags/YYYYMMDD_HHMMSS
+```
+
+GO2 关机后可以重放原始点云和 odom。终端一启动离线建图节点：
+
+```bash
+ros2 launch go2_base_nav mapping.launch.py \
+  use_sim_time:=true use_rviz:=true record_bag:=false
+```
+
+另一个已 source 的终端播放选定输入：
+
+```bash
+ros2 bag play ~/go2_mapping_bags/YYYYMMDD_HHMMSS \
+  --clock \
+  --topics /utlidar/cloud_deskewed /utlidar/robot_odom /tf_static
+```
+
+回放时故意不播放 `/tf`，因为 `planar_odom` 与 SLAM Toolbox 会重新生成动态
+TF；同时播放旧 `/tf` 会造成同名坐标变换冲突。
 
 ## 4. 三维建图（RTAB-Map，只建图）
 
