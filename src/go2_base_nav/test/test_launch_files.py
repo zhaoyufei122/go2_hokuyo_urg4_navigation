@@ -67,6 +67,21 @@ def test_mapping_launch_includes_sensors_and_async_slam_without_control():
         if isinstance(action, IncludeLaunchDescription)
     ]
     assert len(includes) == 2
+    argument_names = {
+        action.name
+        for action in description.entities
+        if isinstance(action, DeclareLaunchArgument)
+    }
+    assert {"record_bag", "bag_output_root"} <= argument_names
+    for required_text in (
+        "OpaqueFunction",
+        "ExecuteProcess",
+        "build_bag_record_command",
+        'DeclareLaunchArgument("record_bag", default_value="true")',
+        'default_value="~/go2_mapping_bags"',
+    ):
+        assert required_text in launch_text
+
     node_pairs = {
         (action.node_package, action.node_executable)
         for action in description.entities

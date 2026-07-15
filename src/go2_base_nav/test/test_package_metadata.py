@@ -25,6 +25,7 @@ def test_package_declares_runtime_dependencies():
         "pointcloud_to_laserscan",
         "rclcpp_components",
         "rclpy",
+        "ros2bag",
         "rtabmap_slam",
         "rtabmap_viz",
         "rviz2",

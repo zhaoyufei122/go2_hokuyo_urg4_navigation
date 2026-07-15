@@ -3,11 +3,28 @@ from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+)
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+from go2_base_nav.mapping_bag import build_bag_record_command
+
+
+def _start_bag_recording(context):
+    output_root = LaunchConfiguration("bag_output_root").perform(context)
+    return [
+        ExecuteProcess(
+            cmd=build_bag_record_command(output_root),
+            output="screen",
+        )
+    ]
 
 
 def generate_launch_description():
@@ -23,11 +40,17 @@ def generate_launch_description():
 
     use_rviz = LaunchConfiguration("use_rviz")
     use_sim_time = LaunchConfiguration("use_sim_time")
+    record_bag = LaunchConfiguration("record_bag")
 
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_rviz", default_value="true"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument("record_bag", default_value="true"),
+            DeclareLaunchArgument(
+                "bag_output_root",
+                default_value="~/go2_mapping_bags",
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(str(sensors_launch)),
                 launch_arguments={"use_sim_time": use_sim_time}.items(),
@@ -38,6 +61,10 @@ def generate_launch_description():
                     "slam_params_file": str(slam_config),
                     "use_sim_time": use_sim_time,
                 }.items(),
+            ),
+            OpaqueFunction(
+                function=_start_bag_recording,
+                condition=IfCondition(record_bag),
             ),
             Node(
                 package="rviz2",
