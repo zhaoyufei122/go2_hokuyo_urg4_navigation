@@ -73,6 +73,7 @@ rtabmap:
     Grid/RangeMin: "0.25"
     Grid/RangeMax: "8.0"
     Grid/NormalsSegmentation: "false"
+    Grid/MaxGroundHeight: "0.08"
     Grid/RayTracing: "true"
 
 rtabmap_viz:

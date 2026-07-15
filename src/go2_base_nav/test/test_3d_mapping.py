@@ -83,6 +83,7 @@ def test_rtabmap_3d_icp_loop_closure_and_grid_parameters():
     assert parameters["Grid/RangeMin"] == "0.25"
     assert parameters["Grid/RangeMax"] == "8.0"
     assert parameters["Grid/NormalsSegmentation"] == "false"
+    assert parameters["Grid/MaxGroundHeight"] == "0.08"
     assert parameters["Grid/RayTracing"] == "true"
 
 
