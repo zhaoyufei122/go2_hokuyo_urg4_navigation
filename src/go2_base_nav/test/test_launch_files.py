@@ -17,6 +17,8 @@ def _load_launch_description(filename):
 
 
 def test_sensors_launch_starts_planar_odom_and_projection():
+    launch_path = PACKAGE_ROOT / "launch" / "sensors.launch.py"
+    launch_text = launch_path.read_text()
     description = _load_launch_description("sensors.launch.py")
     node_pairs = {
         (action.node_package, action.node_executable)
@@ -40,6 +42,15 @@ def test_sensors_launch_starts_planar_odom_and_projection():
         "scan_topic",
         "use_sim_time",
     } <= argument_names
+
+    for required_text in (
+        "pcl_ros::CropBox",
+        "/cloud_self_filtered",
+        '("input", cloud_topic)',
+        '("output", filtered_cloud_topic)',
+        '("cloud_in", filtered_cloud_topic)',
+    ):
+        assert required_text in launch_text
 
 
 def test_mapping_launch_includes_sensors_and_async_slam_without_control():
