@@ -140,6 +140,7 @@ def test_3d_mapping_launch_declares_operator_inputs_and_nodes():
         "new_map",
         "robot_odom_topic",
         "use_rtabmap_viz",
+        "use_rviz",
         "use_sim_time",
     }
 
@@ -152,6 +153,7 @@ def test_3d_mapping_launch_declares_operator_inputs_and_nodes():
     assert node_pairs.count(("rclcpp_components", "component_container_mt")) == 1
     assert node_pairs.count(("rtabmap_slam", "rtabmap")) == 2
     assert node_pairs.count(("rtabmap_viz", "rtabmap_viz")) == 1
+    assert node_pairs.count(("rviz2", "rviz2")) == 1
 
     containers = [
         action
@@ -159,6 +161,17 @@ def test_3d_mapping_launch_declares_operator_inputs_and_nodes():
         if isinstance(action, ComposableNodeContainer)
     ]
     assert len(containers) == 1
+
+
+def test_3d_mapping_launch_defaults_to_rviz_operator_view():
+    launch_text = LAUNCH_PATH.read_text()
+    assert 'DeclareLaunchArgument("use_rviz", default_value="true")' in launch_text
+    assert (
+        'DeclareLaunchArgument("use_rtabmap_viz", default_value="false")'
+        in launch_text
+    )
+    assert '"-d", rviz_config' in launch_text
+    assert "condition=IfCondition(use_rviz)" in launch_text
 
 
 def test_3d_mapping_launch_wires_filter_chain_and_database_modes():

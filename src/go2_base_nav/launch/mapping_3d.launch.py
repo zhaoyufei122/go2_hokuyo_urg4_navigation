@@ -46,12 +46,14 @@ def _rtabmap_node(
 def generate_launch_description():
     package_root = Path(__file__).resolve().parents[1]
     config_file = str(package_root / "config" / "rtabmap_3d.yaml")
+    rviz_config = str(package_root / "rviz" / "mapping_3d.rviz")
 
     cloud_topic = LaunchConfiguration("cloud_topic")
     robot_odom_topic = LaunchConfiguration("robot_odom_topic")
     database_path = LaunchConfiguration("database_path")
     new_map = LaunchConfiguration("new_map")
     use_rtabmap_viz = LaunchConfiguration("use_rtabmap_viz")
+    use_rviz = LaunchConfiguration("use_rviz")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
     cropped_cloud_topic = "/cloud_3d_cropped"
@@ -139,6 +141,16 @@ def generate_launch_description():
         condition=IfCondition(use_rtabmap_viz),
     )
 
+    rviz = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2",
+        output="screen",
+        arguments=["-d", rviz_config],
+        parameters=[{"use_sim_time": use_sim_time}],
+        condition=IfCondition(use_rviz),
+    )
+
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -154,12 +166,14 @@ def generate_launch_description():
                 default_value=DEFAULT_DATABASE_PATH,
             ),
             DeclareLaunchArgument("new_map", default_value="true"),
-            DeclareLaunchArgument("use_rtabmap_viz", default_value="true"),
+            DeclareLaunchArgument("use_rviz", default_value="true"),
+            DeclareLaunchArgument("use_rtabmap_viz", default_value="false"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             planar_odom,
             cloud_filters,
             fresh_mapping,
             resumed_mapping,
             rtabmap_viz,
+            rviz,
         ]
     )
