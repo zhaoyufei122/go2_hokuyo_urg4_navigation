@@ -1,0 +1,95 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Ground Grid
+      Enabled: true
+      Plane: XY
+      Cell Size: 1
+      Plane Cell Count: 20
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Frame Timeout: 15
+      Marker Scale: 0.5
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Live Filtered Cloud
+      Enabled: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /cloud_3d_filtered
+      Style: Points
+      Size (Pixels): 4
+      Decay Time: 0.3
+      Color Transformer: FlatColor
+      Color: 255; 170; 0
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Accumulated 3D Map
+      Enabled: true
+      Topic:
+        Depth: 1
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /cloud_map
+      Style: Points
+      Size (Pixels): 2
+      Decay Time: 0
+      Color Transformer: FlatColor
+      Color: 120; 220; 255
+    - Class: rviz_default_plugins/Map
+      Name: Projected 2D Map
+      Enabled: true
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map
+      Alpha: 0.55
+      Color Scheme: map
+      Draw Behind: true
+    - Class: rviz_default_plugins/Path
+      Name: Mapping Path
+      Enabled: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /mapPath
+      Buffer Length: 1
+      Color: 25; 255; 0
+      Line Style: Lines
+      Line Width: 0.03
+  Enabled: true
+  Global Options:
+    Fixed Frame: map_3d
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 8
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Pitch: 0.65
+      Yaw: 0.8
+Window Geometry:
+  Height: 900
+  Width: 1400

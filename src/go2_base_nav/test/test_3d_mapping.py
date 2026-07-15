@@ -9,6 +9,7 @@ from launch_ros.actions import ComposableNodeContainer, Node
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = PACKAGE_ROOT / "config" / "rtabmap_3d.yaml"
 LAUNCH_PATH = PACKAGE_ROOT / "launch" / "mapping_3d.launch.py"
+RVIZ_PATH = PACKAGE_ROOT / "rviz" / "mapping_3d.rviz"
 REPOSITORY_ROOT = PACKAGE_ROOT.parents[1]
 
 
@@ -96,6 +97,34 @@ def test_rtabmap_viz_matches_cloud_and_tf_inputs():
     assert parameters["frame_id"] == "base_link"
     assert parameters["odom_frame_id"] == "odom"
     assert parameters["qos_scan"] == 2
+
+
+def test_3d_mapping_rviz_shows_live_accumulated_projected_and_path_data():
+    config = yaml.safe_load(RVIZ_PATH.read_text())
+    manager = config["Visualization Manager"]
+    displays = {display["Name"]: display for display in manager["Displays"]}
+
+    assert manager["Global Options"]["Fixed Frame"] == "map_3d"
+    assert displays["Ground Grid"]["Class"] == "rviz_default_plugins/Grid"
+    assert displays["TF"]["Class"] == "rviz_default_plugins/TF"
+
+    live_cloud = displays["Live Filtered Cloud"]
+    assert live_cloud["Topic"]["Value"] == "/cloud_3d_filtered"
+    assert live_cloud["Topic"]["Reliability Policy"] == "Best Effort"
+    assert live_cloud["Color"] == "255; 170; 0"
+    assert live_cloud["Size (Pixels)"] == 4
+
+    accumulated_cloud = displays["Accumulated 3D Map"]
+    assert accumulated_cloud["Topic"]["Value"] == "/cloud_map"
+    assert accumulated_cloud["Topic"]["Reliability Policy"] == "Reliable"
+    assert accumulated_cloud["Color"] == "120; 220; 255"
+    assert accumulated_cloud["Size (Pixels)"] == 2
+
+    projected_map = displays["Projected 2D Map"]
+    assert projected_map["Topic"]["Value"] == "/map"
+    assert projected_map["Topic"]["Durability Policy"] == "Transient Local"
+
+    assert displays["Mapping Path"]["Topic"]["Value"] == "/mapPath"
 
 
 def test_3d_mapping_launch_declares_operator_inputs_and_nodes():
