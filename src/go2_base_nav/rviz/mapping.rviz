@@ -22,14 +22,14 @@ Visualization Manager:
         Value: /scan
       Size (m): 0.03
     - Class: rviz_default_plugins/PointCloud2
-      Name: Deskewed Cloud
+      Name: Filtered Cloud
       Enabled: true
       Topic:
         Depth: 1
         Durability Policy: Volatile
         History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /utlidar/cloud_deskewed
+        Reliability Policy: Best Effort
+        Value: /cloud_self_filtered
       Style: Points
       Size (Pixels): 2
       Decay Time: 0.2
