@@ -99,6 +99,16 @@ ros2 launch go2_base_nav mapping_3d.launch.py \
   new_map:=true
 ```
 
+这个命令默认打开配置好的 RViz。Fixed Frame 已设为 `map_3d`：
+
+- `Live Filtered Cloud`（橙色）显示当前帧 `/cloud_3d_filtered`；
+- `Accumulated 3D Map`（青色）显示不断增长和回环优化的 `/cloud_map`；
+- `Projected 2D Map` 显示同步生成的 `/map`；
+- `Mapping Path` 显示 `/mapPath` 建图轨迹。
+
+只做无界面诊断时增加 `use_rviz:=false`。需要检查 RTAB-Map 节点图和
+回环细节时增加 `use_rtabmap_viz:=true`；默认不打开这个专业调试窗口。
+
 先不要移动。在另一个按前述顺序 source 的终端检查过滤点云和完整三维 TF：
 
 ```bash
@@ -106,7 +116,7 @@ timeout 10s ros2 topic echo /cloud_3d_filtered --once --no-arr
 timeout 10s ros2 run tf2_ros tf2_echo odom base_link
 ```
 
-RTAB-Map 窗口中应看到房间、地面和家具，但机器狗身体附近不应有持续跟随的点簇。
+RViz 中应看到房间、地面和家具，但机器狗身体附近不应有持续跟随的点簇。
 若仍能看到机身，先调整机身裁剪框，不要先改 ICP 参数。确认点云正确后，用实体
 遥控器缓慢走一条闭环，从两个方向扫到桌椅，并回到起点附近等待回环修正。
 

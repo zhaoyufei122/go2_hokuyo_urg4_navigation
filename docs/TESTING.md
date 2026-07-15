@@ -77,6 +77,15 @@ Collision Monitor 输出零速，安全桥接发布一次 StopMove（API 1003）
 这一项与二维导航分开测试。关闭所有 mapping、sensors 和 navigation 启动实例后，
 只启动 `mapping_3d.launch.py`；整个过程中只用实体遥控器移动，不发送 Nav2 目标。
 
+默认 RViz 的 Fixed Frame 必须为 `map_3d`。确认四个预配置显示均正常：
+
+- `Live Filtered Cloud` 随机器狗移动并只短暂保留当前扫描；
+- `Accumulated 3D Map` 随行走不断增长；
+- `Projected 2D Map` 同步显示平面占用区域；
+- `Mapping Path` 记录已经走过的轨迹。
+
+回环发生时累计地图和轨迹可能整体小幅重新对齐，这是正常的图优化结果。
+
 1. 静止检查 `/cloud_3d_filtered`：应保留地面、墙面、桌面和椅腿，机器狗身体
    周围不应有随机器人一起移动的机身点簇。若有，先调整 CropBox 边界，再考虑
    ICP 参数。

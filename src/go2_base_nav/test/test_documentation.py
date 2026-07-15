@@ -57,6 +57,13 @@ def test_readme_documents_complete_3d_mapping_workflow():
         "实体遥控器",
         "Ctrl-C",
         "本版不做 3D 定位或自主导航",
+        "默认打开配置好的 RViz",
+        "/cloud_map",
+        "/mapPath",
+        "Fixed Frame",
+        "map_3d",
+        "use_rviz:=false",
+        "use_rtabmap_viz:=true",
     ):
         assert required_text in readme
 
@@ -71,5 +78,9 @@ def test_testing_runbook_covers_3d_mapping_acceptance():
         "双墙",
         "room_3d.db",
         "没有软件运动指令",
+        "Accumulated 3D Map",
+        "Live Filtered Cloud",
+        "Projected 2D Map",
+        "Mapping Path",
     ):
         assert required_text in testing
