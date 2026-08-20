@@ -17,5 +17,6 @@ def test_mapping_rviz_shows_filtered_cloud_scan_map_and_tf():
     assert filtered_cloud["Topic"]["Value"] == "/cloud_self_filtered"
     assert filtered_cloud["Topic"]["Reliability Policy"] == "Best Effort"
     assert displays["Scan"]["Topic"]["Value"] == "/scan"
+    assert displays["Scan"]["Topic"]["Reliability Policy"] == "Best Effort"
     assert displays["Map"]["Topic"]["Value"] == "/map"
     assert "Deskewed Cloud" not in displays

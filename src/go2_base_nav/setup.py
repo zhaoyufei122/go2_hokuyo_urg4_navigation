@@ -44,7 +44,9 @@ setup(
     entry_points={
         "console_scripts": [
             "planar_odom = go2_base_nav.planar_odom:main",
+            "scan_accumulator = go2_base_nav.scan_accumulator:main",
             "go2_cmd_vel_bridge = go2_base_nav.cmd_vel_bridge:main",
+            "scan_filter = go2_base_nav.scan_filter:main",
         ],
     },
 )

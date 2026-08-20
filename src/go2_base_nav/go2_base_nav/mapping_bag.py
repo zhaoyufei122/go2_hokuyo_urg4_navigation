@@ -12,6 +12,16 @@ BAG_TOPICS = (
     "/tf_static",
 )
 
+SLAMTEC_BAG_TOPICS = (
+    "/scan",
+    "/utlidar/robot_odom",
+    "/odom",
+    "/map",
+    "/map_updates",
+    "/tf",
+    "/tf_static",
+)
+
 
 def select_bag_output(
     root: str | Path,
@@ -34,3 +44,18 @@ def build_bag_record_command(
 ) -> list[str]:
     output = select_bag_output(root, now)
     return ["ros2", "bag", "record", "-o", str(output), *BAG_TOPICS]
+
+
+def build_slamtec_bag_record_command(
+    root: str | Path,
+    now: datetime | None = None,
+) -> list[str]:
+    output = select_bag_output(root, now)
+    return [
+        "ros2",
+        "bag",
+        "record",
+        "-o",
+        str(output),
+        *SLAMTEC_BAG_TOPICS,
+    ]

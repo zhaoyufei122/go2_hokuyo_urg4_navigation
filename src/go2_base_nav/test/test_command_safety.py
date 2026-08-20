@@ -27,16 +27,35 @@ def test_clamp_handles_negative_limits_and_zero():
 
 @pytest.mark.parametrize(
     ("requested_angular_z", "expected_angular_z"),
-    [(0.05, 0.4), (-0.05, -0.4)],
+    # Turning on the spot: the firmware ignores tiny yaw rates, so anything
+    # outside the deadband is promoted to the GO2 minimum, and anything inside
+    # it becomes "no rotation" rather than bang-banging against the minimum.
+    [(0.05, 0.0), (-0.05, 0.0), (0.15, 0.4), (-0.15, -0.4), (0.5, 0.5)],
 )
-def test_clamp_promotes_nonzero_angular_velocity_to_go2_minimum(
+def test_clamp_promotes_in_place_rotation_to_go2_minimum(
     requested_angular_z,
     expected_angular_z,
 ):
+    command = clamp_command(0.0, 0.0, requested_angular_z, MotionLimits())
+
+    assert command.linear_x == 0.0
+    assert command.angular_z == expected_angular_z
+
+
+@pytest.mark.parametrize("requested_angular_z", [0.15, -0.15, 0.05, 0.39])
+def test_clamp_passes_small_yaw_through_while_walking(requested_angular_z):
+    """Promoting a path tracker's gentle curve to 0.4 rad/s makes the dog
+    snake instead of advancing, so the minimum applies on the spot only."""
     command = clamp_command(0.35, 0.0, requested_angular_z, MotionLimits())
 
     assert command.linear_x == 0.35
-    assert command.angular_z == expected_angular_z
+    assert command.angular_z == requested_angular_z
+
+
+def test_clamp_still_bounds_yaw_while_walking():
+    command = clamp_command(0.35, 0.0, 1.2, MotionLimits())
+
+    assert command.angular_z == 0.6
 
 
 @pytest.mark.parametrize("value", [nan, inf, -inf])

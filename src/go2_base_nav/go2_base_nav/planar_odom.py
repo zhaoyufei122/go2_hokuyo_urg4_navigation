@@ -100,10 +100,22 @@ class PlanarOdomNode(Node):
         self.declare_parameter("odom_frame", "odom")
         self.declare_parameter("footprint_frame", "base_footprint")
         self.declare_parameter("base_frame", "base_link")
+        # The onboard odometry arrives at ~150 Hz; republishing every
+        # message floods /tf and every subscriber's buffer for no benefit.
+        self.declare_parameter("output_rate_hz", 50.0)
+        # The GO2 onboard clock is never perfectly synced with this computer.
+        # Restamping on arrival removes residual clock skew from TF lookups.
+        self.declare_parameter("restamp", True)
+        self._restamp = bool(self.get_parameter("restamp").value)
 
         self._odom_frame = self.get_parameter("odom_frame").value
         self._footprint_frame = self.get_parameter("footprint_frame").value
         self._base_frame = self.get_parameter("base_frame").value
+        output_rate_hz = float(self.get_parameter("output_rate_hz").value)
+        if not isfinite(output_rate_hz) or output_rate_hz <= 0.0:
+            raise ValueError("output_rate_hz must be finite and > 0")
+        self._min_period_ns = int(1_000_000_000 / output_rate_hz)
+        self._last_publish_ns: int | None = None
 
         input_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -125,6 +137,13 @@ class PlanarOdomNode(Node):
         )
 
     def _handle_odometry(self, message: Odometry) -> None:
+        stamp = message.header.stamp
+        stamp_ns = stamp.sec * 1_000_000_000 + stamp.nanosec
+        if (
+            self._last_publish_ns is not None
+            and stamp_ns - self._last_publish_ns < self._min_period_ns
+        ):
+            return
         try:
             output, odom_to_footprint, footprint_to_base = planarize_odometry(
                 message,
@@ -136,6 +155,12 @@ class PlanarOdomNode(Node):
             self.get_logger().error(f"Dropping invalid GO2 odometry: {error}")
             return
 
+        self._last_publish_ns = stamp_ns
+        if self._restamp:
+            now = self.get_clock().now().to_msg()
+            output.header.stamp = now
+            odom_to_footprint.header.stamp = now
+            footprint_to_base.header.stamp = now
         self._publisher.publish(output)
         self._transform_broadcaster.sendTransform(
             [odom_to_footprint, footprint_to_base]

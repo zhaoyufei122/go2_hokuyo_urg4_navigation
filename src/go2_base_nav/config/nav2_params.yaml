@@ -1,11 +1,23 @@
 amcl:
   ros__parameters:
     use_sim_time: false
-    alpha1: 0.2
-    alpha2: 0.2
-    alpha3: 0.2
-    alpha4: 0.2
-    alpha5: 0.2
+    # Motion model noise. The Nav2 defaults (0.2 everywhere) are tuned for a
+    # wheeled robot with encoder odometry. A trotting GO2 estimates heading
+    # from leg kinematics and IMU, and its yaw is by far the worst axis, so
+    # the rotational terms get much more noise than the translational ones.
+    # This is not cosmetic: the per-update yaw spread is sqrt(alpha)*|motion|,
+    # and it is the ONLY thing that lets particles reach a better heading. Too
+    # little and AMCL cannot climb out to a pose ~10 deg away even when that
+    # pose fits the map six times better -- it just sits at the compromise
+    # between its motion prior and the scan.
+    # 0.8 was an overshoot: extra process noise only helps if the sensor model
+    # can then pick the good particles out again. Paired with a narrow
+    # sigma_hit it just makes the dead reckoning diffuse faster.
+    alpha1: 0.5   # yaw noise from rotating
+    alpha2: 0.5   # yaw noise from translating (heading drifts while walking)
+    alpha3: 0.2   # xy noise from translating (leg odometry distance is ok)
+    alpha4: 0.3   # xy noise from rotating (the dog shuffles as it turns)
+    alpha5: 0.2   # unused by DifferentialMotionModel; Omni only
     base_frame_id: "base_footprint"
     beam_skip_distance: 0.5
     beam_skip_error_threshold: 0.9
@@ -16,21 +28,42 @@ amcl:
     set_initial_pose: false
     lambda_short: 0.1
     laser_likelihood_max_dist: 2.0
-    laser_max_range: 8.0
+    # The URG-04LX-UG01 is a 4 m sensor and scan_filter caps range_max at 4.0.
+    # AMCL takes min(laser_max_range, scan.range_max), so anything larger here
+    # is silently ignored; keep it honest so the real limit is obvious.
+    laser_max_range: 4.0
     laser_min_range: -1.0
     laser_model_type: "likelihood_field"
-    max_beams: 60
+    max_beams: 120
     max_particles: 5000
     min_particles: 500
     odom_frame_id: "odom"
     pf_err: 0.05
     pf_z: 0.99
-    recovery_alpha_fast: 0.1
-    recovery_alpha_slow: 0.001
+    # Augmented-MCL "kidnapped robot" recovery. Non-zero values make AMCL
+    # replace part of the cloud with poses drawn uniformly from the whole map
+    # whenever the recent scan likelihood dips below the long-run average. On a
+    # trotting quadruped with a 4 m lidar that condition is met almost every
+    # frame, so the cloud never converges (measured: 4.6 x 3.3 m spread) and
+    # map->odom jumps around. Keep both at the Nav2 default of 0.0; recover
+    # from a real kidnapping with a 2D Pose Estimate instead.
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
     resample_interval: 1
     robot_model_type: "nav2_amcl::DifferentialMotionModel"
     save_pose_rate: 0.5
-    sigma_hit: 0.2
+    # Width of the likelihood-field Gaussian == how far off AMCL can still
+    # tell that a pose is wrong. Signal left above the z_rand floor for a scan
+    # point that misses the wall by:
+    #            0.1 m   0.2 m   0.3 m   0.5 m
+    #   0.1  ->    61%     14%      1%      0%
+    #   0.3  ->    95%     80%     61%     25%
+    # At 0.1 the capture range is about +-0.2 m: past that every particle
+    # scores the same, resampling turns into a coin flip, and the filter
+    # degenerates into dead reckoning off the initial pose -- which is exactly
+    # the reported symptom. Measured: scan-to-map 5.2 cm at 17:35 and 60.8 cm
+    # 16 minutes later in the SAME run, particle cloud grown to 7.4 x 8.1 m.
+    sigma_hit: 0.3
     tf_broadcast: true
     transform_tolerance: 1.0
     update_min_a: 0.10
@@ -72,7 +105,7 @@ bt_navigator:
 controller_server:
   ros__parameters:
     use_sim_time: false
-    controller_frequency: 20.0
+    controller_frequency: 10.0
     costmap_update_timeout: 0.30
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
@@ -87,7 +120,9 @@ controller_server:
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
       required_movement_radius: 0.3
-      movement_time_allowance: 15.0
+      # Goals behind the robot need rotate-then-drive, which shows no
+      # translation for several seconds; 15 s triggered abort+clear loops.
+      movement_time_allowance: 30.0
     # Goal checker parameters
     #precise_goal_checker:
     #  plugin: "nav2_controller::SimpleGoalChecker"
@@ -106,7 +141,7 @@ controller_server:
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.9
       lookahead_time: 1.5
-      rotate_to_heading_angular_vel: 0.6
+      rotate_to_heading_angular_vel: 0.8
       use_velocity_scaled_lookahead_dist: true
       min_approach_linear_velocity: 0.3
       approach_velocity_scaling_dist: 0.6
@@ -119,8 +154,17 @@ controller_server:
       use_fixed_curvature_lookahead: false
       curvature_lookahead_dist: 0.6
       use_rotate_to_heading: true
-      rotate_to_heading_min_angle: 0.785
-      max_angular_accel: 0.8
+      # Trigger rotate-in-place for anything beyond ~20 deg: arc-creeping at
+      # high curvature outputs <0.1 rad/s, which the cmd_vel bridge deadband
+      # then zeroes out, leaving the dog frozen until the progress timeout.
+      rotate_to_heading_min_angle: 0.35
+      # RPP clamps the commanded rotation rate to
+      #   curr_angular_speed + max_angular_accel * control_dt.
+      # With 0.8 @ 10 Hz the first cycle may only command 0.08 rad/s, which
+      # the bridge deadband (0.1) zeroes -> the dog never starts rotating,
+      # odometry stays 0 and the ramp never climbs. 3.5 allows 0.35 on the
+      # first cycle, above the deadband, so rotation actually starts.
+      max_angular_accel: 3.5
       allow_reversing: false
       stateful: true
       time_steps: 56
@@ -220,29 +264,42 @@ local_costmap:
       publish_frequency: 2.0
       global_frame: odom
       robot_base_frame: base_footprint
+      # Scan timestamps come from the Jetson, whose clock lags the PC by
+      # ~1-2 s after the ssh-based date sync; 0.1 s default is too tight.
+      transform_tolerance: 0.5
       rolling_window: true
       width: 3
       height: 3
       resolution: 0.05
-      footprint: "[[0.40, 0.25], [0.40, -0.25], [-0.40, -0.25], [-0.40, 0.25]]"
+      footprint: "[[0.35, 0.20], [0.35, -0.20], [-0.35, -0.20], [-0.35, 0.20]]"
       plugins: ["obstacle_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 5.0
-        inflation_radius: 0.35
+        inflation_radius: 0.30
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
         observation_sources: scan
         scan:
           topic: /scan
+          # scan_filter replaces out-of-range readings with +inf. Without
+          # inf_is_valid the ObstacleLayer drops those beams entirely -- no
+          # marking AND no ray clearing -- so every phantom return (body pitch
+          # hitting the floor, someone walking past) stays in the costmap
+          # forever. With it, +inf becomes range_max - 1e-4 = 3.9999 m.
+          inf_is_valid: true
           max_obstacle_height: 2.0
           clearing: True
           marking: True
           data_type: "LaserScan"
-          raytrace_max_range: 8.0
+          # Must stay >= scan.range_max (4.0) so those synthetic max-range
+          # points clear their whole ray.
+          raytrace_max_range: 4.5
           raytrace_min_range: 0.25
-          obstacle_max_range: 8.0
+          # Must stay < scan.range_max (4.0), or the 3.9999 m points that
+          # inf_is_valid creates get marked as a ring of obstacles at 4 m.
+          obstacle_max_range: 3.5
           obstacle_min_range: 0.25
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -257,7 +314,8 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_footprint
-      footprint: "[[0.40, 0.25], [0.40, -0.25], [-0.40, -0.25], [-0.40, 0.25]]"
+      transform_tolerance: 0.5
+      footprint: "[[0.35, 0.20], [0.35, -0.20], [-0.35, -0.20], [-0.35, 0.20]]"
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
@@ -267,13 +325,23 @@ global_costmap:
         observation_sources: scan
         scan:
           topic: /scan
+          # scan_filter replaces out-of-range readings with +inf. Without
+          # inf_is_valid the ObstacleLayer drops those beams entirely -- no
+          # marking AND no ray clearing -- so every phantom return (body pitch
+          # hitting the floor, someone walking past) stays in the costmap
+          # forever. With it, +inf becomes range_max - 1e-4 = 3.9999 m.
+          inf_is_valid: true
           max_obstacle_height: 2.0
           clearing: True
           marking: True
           data_type: "LaserScan"
-          raytrace_max_range: 8.0
+          # Must stay >= scan.range_max (4.0) so those synthetic max-range
+          # points clear their whole ray.
+          raytrace_max_range: 4.5
           raytrace_min_range: 0.25
-          obstacle_max_range: 8.0
+          # Must stay < scan.range_max (4.0), or the 3.9999 m points that
+          # inf_is_valid creates get marked as a ring of obstacles at 4 m.
+          obstacle_max_range: 3.5
           obstacle_min_range: 0.25
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -281,7 +349,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 5.0
-        inflation_radius: 0.35
+        inflation_radius: 0.30
       always_send_full_costmap: True
 
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
@@ -392,8 +460,8 @@ velocity_smoother:
     stamp_smoothed_velocity_with_smoothing_time: False
     scale_velocities: False
     feedback: "OPEN_LOOP"
-    max_velocity: [0.4, 0.0, 0.6]
-    min_velocity: [-0.4, 0.0, -0.6]
+    max_velocity: [0.4, 0.0, 0.8]
+    min_velocity: [-0.4, 0.0, -0.8]
     max_accel: [0.6, 0.0, 0.8]
     max_decel: [-0.8, 0.0, -1.0]
     odom_topic: "odom"
@@ -416,7 +484,7 @@ collision_monitor:
     polygons: ["StopZone"]
     StopZone:
       type: "polygon"
-      points: "[[0.60, 0.35], [0.60, -0.35], [-0.50, -0.35], [-0.50, 0.35]]"
+      points: "[[0.45, 0.28], [0.45, -0.28], [-0.40, -0.28], [-0.40, 0.28]]"
       action_type: "stop"
       min_points: 4
       visualize: True

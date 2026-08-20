@@ -4,7 +4,10 @@ import yaml
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-FOOTPRINT = "[[0.40, 0.25], [0.40, -0.25], [-0.40, -0.25], [-0.40, 0.25]]"
+FOOTPRINT = "[[0.35, 0.20], [0.35, -0.20], [-0.35, -0.20], [-0.35, 0.20]]"
+# scan_filter publishes range_max = 4.0 and replaces everything outside
+# (0.06, 4.0) m with +inf.
+SCAN_RANGE_MAX = 4.0
 
 
 def _config():
@@ -29,19 +32,19 @@ def test_navigation_frames_controller_and_speed_limits():
     assert controller["FollowPath"]["desired_linear_vel"] == 0.4
     assert controller["FollowPath"]["min_approach_linear_velocity"] == 0.3
     assert controller["FollowPath"]["regulated_linear_scaling_min_speed"] == 0.3
-    assert controller["FollowPath"]["rotate_to_heading_angular_vel"] == 0.6
+    assert controller["FollowPath"]["rotate_to_heading_angular_vel"] == 0.8
     assert controller["FollowPath"]["use_cost_regulated_linear_velocity_scaling"] is False
     assert controller["FollowPath"]["allow_reversing"] is False
     assert controller["general_goal_checker"]["xy_goal_tolerance"] == 0.25
     assert controller["general_goal_checker"]["yaw_goal_tolerance"] == 0.25
-    assert smoother["max_velocity"] == [0.4, 0.0, 0.6]
-    assert smoother["min_velocity"] == [-0.4, 0.0, -0.6]
+    assert smoother["max_velocity"] == [0.4, 0.0, 0.8]
+    assert smoother["min_velocity"] == [-0.4, 0.0, -0.8]
     assert smoother["velocity_timeout"] == 0.5
     assert collision["source_timeout"] == 0.5
     assert collision["StopZone"]["action_type"] == "stop"
     assert collision["StopZone"]["min_points"] == 4
     assert collision["StopZone"]["points"] == (
-        "[[0.60, 0.35], [0.60, -0.35], [-0.50, -0.35], [-0.50, 0.35]]"
+        "[[0.45, 0.28], [0.45, -0.28], [-0.40, -0.28], [-0.40, 0.28]]"
     )
     assert collision["scan"]["topic"] == "/scan"
 
@@ -57,8 +60,37 @@ def test_costmaps_use_exact_footprint_and_scan_obstacles():
         assert obstacle["observation_sources"] == "scan"
         assert obstacle["scan"]["topic"] == "/scan"
         assert obstacle["scan"]["data_type"] == "LaserScan"
-        assert params["inflation_layer"]["inflation_radius"] == 0.35
+        assert params["inflation_layer"]["inflation_radius"] == 0.30
         assert params["inflation_layer"]["cost_scaling_factor"] == 5.0
+
+
+def test_costmaps_clear_the_scan_filter_infinities():
+    """+inf beams must clear the ray without marking a ring at range_max."""
+    config = _config()
+    for costmap_name in ("local_costmap", "global_costmap"):
+        params = config[costmap_name][costmap_name]["ros__parameters"]
+        scan = params["obstacle_layer"]["scan"]
+        # Without this the ObstacleLayer drops every +inf beam, so phantom
+        # obstacles are never ray-cleared.
+        assert scan["inf_is_valid"] is True
+        assert scan["clearing"] is True
+        assert scan["marking"] is True
+        # inf becomes range_max - 1e-4, so clearing must reach past it and
+        # marking must stop short of it.
+        assert scan["raytrace_max_range"] >= SCAN_RANGE_MAX
+        assert scan["obstacle_max_range"] < SCAN_RANGE_MAX
+        assert scan["obstacle_min_range"] < scan["obstacle_max_range"]
+        assert scan["raytrace_min_range"] < scan["raytrace_max_range"]
+
+
+def test_amcl_does_not_inject_random_particles():
+    """Augmented-MCL recovery never converges on a trotting quadruped."""
+    amcl = _config()["amcl"]["ros__parameters"]
+    assert amcl["recovery_alpha_fast"] == 0.0
+    assert amcl["recovery_alpha_slow"] == 0.0
+    # AMCL uses min(laser_max_range, scan.range_max); a larger value here just
+    # hides the real limit.
+    assert amcl["laser_max_range"] == SCAN_RANGE_MAX
 
 
 def test_recovery_rotation_respects_go2_limit():

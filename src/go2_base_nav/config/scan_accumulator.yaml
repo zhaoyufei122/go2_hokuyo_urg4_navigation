@@ -1,0 +1,19 @@
+scan_accumulator:
+  ros__parameters:
+    input_topic: /cloud_self_filtered
+    output_topic: /cloud_accumulated
+    # Deskewed GO2 clouds are registered in a static frame; accumulating in
+    # that frame is exact and avoids re-introducing motion distortion.
+    accumulation_frame: odom
+    # Sliding time window and frame cap for the accumulated cloud. The GO2
+    # onboard LiDAR publishes at ~15 Hz, so 0.35 s unions roughly 5 sparse
+    # non-repetitive scans into one dense cloud. Keep the window short:
+    # longer windows add visible latency/smear when the robot turns.
+    window_sec: 0.35
+    max_frames: 6
+    transform_timeout: 0.1
+    # Temporal consistency filter: within the window, real surfaces are hit
+    # repeatedly and share a voxel; LiDAR outliers and leg ghosts are
+    # isolated single hits and get dropped.
+    voxel_size: 0.05
+    min_voxel_hits: 2

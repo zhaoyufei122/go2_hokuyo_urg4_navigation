@@ -41,14 +41,18 @@ def test_sensors_launch_starts_planar_odom_and_projection():
         "robot_odom_topic",
         "scan_topic",
         "use_sim_time",
+        "use_accumulator",
     } <= argument_names
 
     for required_text in (
         "pcl_ros::CropBox",
         "/cloud_self_filtered",
+        "/cloud_accumulated",
+        "scan_accumulator",
+        "IfCondition(use_accumulator)",
         '("input", cloud_topic)',
         '("output", filtered_cloud_topic)',
-        '("cloud_in", filtered_cloud_topic)',
+        '("cloud_in", projection_input)',
     ):
         assert required_text in launch_text
 
@@ -96,7 +100,13 @@ def test_navigation_launch_requires_map_and_starts_safe_bridge():
     launch_text = path.read_text()
     assert "sensors.launch.py" in launch_text
     assert "bringup_launch.py" in launch_text
+    assert "slam_toolbox_localization.yaml" in launch_text
+    assert 'default_value="amcl"' in launch_text
+    # slam:=True through nav2_bringup would drop our slam params and start
+    # slam_toolbox in mapping mode; start it ourselves instead.
     assert '"slam": "False"' in launch_text
+    assert '"slam": "True"' not in launch_text
+    assert "localization_launch.py" in launch_text
 
     description = _load_launch_description("navigation.launch.py")
     includes = [
@@ -104,15 +114,14 @@ def test_navigation_launch_requires_map_and_starts_safe_bridge():
         for action in description.entities
         if isinstance(action, IncludeLaunchDescription)
     ]
-    assert len(includes) == 2
+    assert len(includes) == 1
 
-    map_arguments = [
-        action
+    argument_names = {
+        action.name
         for action in description.entities
-        if isinstance(action, DeclareLaunchArgument) and action.name == "map"
-    ]
-    assert len(map_arguments) == 1
-    assert map_arguments[0].default_value is None
+        if isinstance(action, DeclareLaunchArgument)
+    }
+    assert {"map", "localization", "slam_posegraph"} <= argument_names
 
     node_pairs = {
         (action.node_package, action.node_executable)
@@ -125,4 +134,5 @@ def test_navigation_launch_requires_map_and_starts_safe_bridge():
     assert '"max_linear_y": 0.0' in launch_text
     assert '"max_angular_z": 0.6' in launch_text
     assert '"min_angular_z": 0.4' in launch_text
+    assert '"angular_deadband": 0.1' in launch_text
     assert '"cmd_timeout": 0.5' in launch_text

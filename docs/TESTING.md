@@ -4,7 +4,7 @@
 实体遥控器始终握在手中，并先确认你熟悉已经验证过的硬件停止/接管操作。
 
 固定安全边界：线速度不超过 `0.4 m/s`，非零角速度绝对值为
-`0.4-0.6 rad/s`，横移为 0；正常有效移动速度不低于 0.3 m/s。任何一项失败都
+`0.4-0.8 rad/s`，横移为 0；正常有效移动速度不低于 0.3 m/s。任何一项失败都
 先停止，不继续下一项。
 
 ## 自动检查
@@ -54,7 +54,7 @@ colcon test-result --verbose
 1. 启动 navigation 并用 `2D Pose Estimate` 设置初始位姿。
 2. AMCL 粒子应收敛，`/scan` 与静态地图家具轮廓重合；明显错层时禁止发目标。
 3. 发送 1–2 m 的开阔短目标。通过标准：线速度不超过 `0.4 m/s`，Unitree
-   Move 请求中非零 `z` 的绝对值处于 `0.4-0.6 rad/s`，无横移，进入
+   Move 请求中非零 `z` 的绝对值处于 `0.4-0.8 rad/s`，无横移，进入
    0.25 m/0.25 rad 容差后停车。
 4. Ctrl-C 关闭 launch；监听 `/api/sport/request` 时应看到 StopMove（API 1003），
    机器狗不应继续运动。
@@ -106,3 +106,24 @@ Collision Monitor 输出零速，安全桥接发布一次 StopMove（API 1003）
    `maps/room_3d.db` 存在且大小非零。不要直接断电结束数据库写入。
 5. 检查启动节点和话题：不得有 `go2_cmd_vel_bridge`、Nav2 或
    `/api/sport/request` 发布者。通过标准是全程没有软件运动指令。
+
+## G. 头部思岚二维雷达
+
+这一项使用 start_slamtec_lidar.sh、slamtec_mapping.launch.py 和
+slamtec_navigation.launch.py，不得同时运行旧 L2 的 sensors.launch.py、
+mapping.launch.py 或 navigation.launch.py。
+
+1. 雷达启动日志必须包含健康状态 OK 和 Sensitivity 模式；电脑端
+   timeout 10s ros2 topic hz /scan 应稳定收到约 10 Hz 以上数据。
+2. 使用 ros2 topic echo /scan sensor_msgs/msg/LaserScan --once --no-arr
+   检查 frame_id 为 laser、角度覆盖约 -pi 到 pi，并存在有限距离值。
+3. tf2_echo base_link laser 应显示安装变换。原地不动时，RViz 的橙色扫描轮廓
+   必须稳定；前方实物应显示在机器人前方。若整体方向固定偏转，先校准
+   laser_yaw，不要靠 SLAM 参数掩盖安装误差。
+4. 思岚建图启动实例中不得有 pointcloud_to_laserscan_node、cloud_self_filter
+   或 go2_cmd_vel_bridge；全程只用实体遥控器移动。
+5. 保存 slamtec_room 后关闭建图，再启动思岚导航。先设置初始位姿并确认扫描与
+   墙壁、固定柜体重合，再做 1--2 m 短目标测试；沿用 A--E 的速度、障碍物、
+   /scan 断流和 StopMove 验收标准。
+6. 停止雷达脚本时日志必须出现 Stop motor，随后串口不应再被 sllidar_node
+   占用。

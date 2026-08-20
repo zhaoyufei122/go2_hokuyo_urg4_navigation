@@ -2,7 +2,8 @@ from pathlib import Path
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import ComposableNodeContainer, Node
 from launch_ros.descriptions import ComposableNode
 
@@ -12,12 +13,30 @@ def generate_launch_description():
     projection_config = str(
         package_root / "config" / "pointcloud_to_laserscan.yaml"
     )
+    accumulator_config = str(
+        package_root / "config" / "scan_accumulator.yaml"
+    )
 
     cloud_topic = LaunchConfiguration("cloud_topic")
     robot_odom_topic = LaunchConfiguration("robot_odom_topic")
     scan_topic = LaunchConfiguration("scan_topic")
     use_sim_time = LaunchConfiguration("use_sim_time")
+    use_accumulator = LaunchConfiguration("use_accumulator")
     filtered_cloud_topic = "/cloud_self_filtered"
+    accumulated_cloud_topic = "/cloud_accumulated"
+    # Direct projection (default, known-good baseline) or projection of the
+    # accumulated cloud when use_accumulator:=true.
+    projection_input = PythonExpression(
+        [
+            "'",
+            accumulated_cloud_topic,
+            "' if '",
+            use_accumulator,
+            "' == 'true' else '",
+            filtered_cloud_topic,
+            "'",
+        ]
+    )
 
     return LaunchDescription(
         [
@@ -31,6 +50,15 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("scan_topic", default_value="/scan"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument(
+                "use_accumulator",
+                default_value="false",
+                description=(
+                    "true: insert the sliding-window scan_accumulator "
+                    "(denser scan, experimental); false: direct projection "
+                    "of /cloud_self_filtered (baseline)"
+                ),
+            ),
             Node(
                 package="go2_base_nav",
                 executable="planar_odom",
@@ -66,13 +94,28 @@ def generate_launch_description():
                 ],
             ),
             Node(
+                package="go2_base_nav",
+                executable="scan_accumulator",
+                name="scan_accumulator",
+                output="screen",
+                condition=IfCondition(use_accumulator),
+                parameters=[
+                    accumulator_config,
+                    {
+                        "input_topic": filtered_cloud_topic,
+                        "output_topic": accumulated_cloud_topic,
+                        "use_sim_time": use_sim_time,
+                    },
+                ],
+            ),
+            Node(
                 package="pointcloud_to_laserscan",
                 executable="pointcloud_to_laserscan_node",
                 name="pointcloud_to_laserscan",
                 output="screen",
                 parameters=[projection_config, {"use_sim_time": use_sim_time}],
                 remappings=[
-                    ("cloud_in", filtered_cloud_topic),
+                    ("cloud_in", projection_input),
                     ("scan", scan_topic),
                 ],
             ),

@@ -1,0 +1,11 @@
+# 依次走过这三个点，每个点停 3 秒：
+#   ./scripts/follow_waypoints.py missions/demo_3points.yaml 3
+- x: -3.95
+  y: -0.246
+  yaw_deg: -131.7
+- x: -2.505
+  y: -0.072
+  yaw_deg: 1.9
+- x: -0.568
+  y: 0.32
+  yaw_deg: 20.1

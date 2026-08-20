@@ -40,3 +40,17 @@ def test_pointcloud_projection_uses_stable_indoor_structure_window():
     assert params["angle_increment"] == 0.008726646259971648
     assert params["queue_size"] == 1
     assert params["use_inf"] is True
+
+
+def test_scan_accumulator_unions_sparse_lidar_frames():
+    config = yaml.safe_load(
+        (PACKAGE_ROOT / "config" / "scan_accumulator.yaml").read_text()
+    )
+    params = config["scan_accumulator"]["ros__parameters"]
+    assert params["input_topic"] == "/cloud_self_filtered"
+    assert params["output_topic"] == "/cloud_accumulated"
+    assert params["accumulation_frame"] == "odom"
+    assert params["window_sec"] == 0.35
+    assert params["max_frames"] == 6
+    assert params["voxel_size"] == 0.05
+    assert params["min_voxel_hits"] == 2

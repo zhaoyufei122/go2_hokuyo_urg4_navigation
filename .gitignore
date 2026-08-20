@@ -8,3 +8,7 @@ __pycache__/
 maps/*.pgm
 maps/*.yaml
 maps/*.db
+maps/*.posegraph
+maps/*.data
+/m.pgm
+/m.yaml

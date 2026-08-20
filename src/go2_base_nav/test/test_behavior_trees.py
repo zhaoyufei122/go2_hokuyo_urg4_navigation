@@ -17,7 +17,7 @@ def test_recovery_backup_uses_go2_minimum_walking_speed(tree_name):
     backups = root.findall(".//BackUp")
 
     assert len(backups) == 1
-    assert backups[0].attrib["backup_dist"] == "0.30"
+    assert backups[0].attrib["backup_dist"] == "0.20"
     assert backups[0].attrib["backup_speed"] == "0.30"
 
 

@@ -41,6 +41,7 @@ def generate_launch_description():
     use_rviz = LaunchConfiguration("use_rviz")
     use_sim_time = LaunchConfiguration("use_sim_time")
     record_bag = LaunchConfiguration("record_bag")
+    use_accumulator = LaunchConfiguration("use_accumulator")
 
     return LaunchDescription(
         [
@@ -48,12 +49,20 @@ def generate_launch_description():
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("record_bag", default_value="true"),
             DeclareLaunchArgument(
+                "use_accumulator",
+                default_value="false",
+                description="Forward to sensors.launch.py",
+            ),
+            DeclareLaunchArgument(
                 "bag_output_root",
                 default_value="~/go2_mapping_bags",
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(str(sensors_launch)),
-                launch_arguments={"use_sim_time": use_sim_time}.items(),
+                launch_arguments={
+                    "use_sim_time": use_sim_time,
+                    "use_accumulator": use_accumulator,
+                }.items(),
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(slam_launch),
