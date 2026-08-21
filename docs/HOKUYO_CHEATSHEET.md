@@ -59,14 +59,29 @@ ros2 run nav2_map_server map_saver_cli -f /home/yufei/Desktop/go2_base_navi/maps
 # 追加存到文件(攒任务点位):
 ./scripts/record_waypoint.py missions/my_task.yaml
 
-# 按文件顺序自动走一遍(Nav2 需已启动;第二个参数=每点停頀秒数):
+# 按文件顺序自动走一遍(Nav2 需已启动;第二个参数=每点停顿秒数):
 ./scripts/follow_waypoints.py missions/my_task.yaml 3
 
-# slam_toolbox 模式下可用启动参数指定初始位姿(yaw 为弧度),免去手点:
+# 相对移动(不走 Nav2,抓取后退场等用;负数=倒退,只允许短距离):
+./scripts/drive_relative.py -0.5        # 倒退 0.5 m
+./scripts/drive_relative.py 0.3 0.35    # 以 0.35 m/s 前进 0.3 m
+
+# slam_toolbox 模式下可用启动参数指定初始位姿(yaw 为弧度),免去手点。
+# 两套地图(两种模式)完整命令:
+
+# A. 老房间图(hokuyo_room) + room_mission 任务:
 ./scripts/start_hokuyo_navigation.sh maps/hokuyo_room.yaml \
   localization:=slam_toolbox \
   slam_posegraph:=/home/yufei/Desktop/go2_base_navi/maps/hokuyo_room \
-  map_start_x:=-2.862 map_start_y:=1.223 map_start_yaw:=-1.278
+  map_start_x:=-0.905 map_start_y:=0.162 map_start_yaw:=-0.089
+./scripts/follow_waypoints.py missions/room_mission.yaml 3
+
+# B. 开门版图(hokuyo_door_open) + door_open_mission 任务:
+./scripts/start_hokuyo_navigation.sh maps/hokuyo_door_open.yaml \
+  localization:=slam_toolbox \
+  slam_posegraph:=/home/yufei/Desktop/go2_base_navi/maps/hokuyo_door_open \
+  map_start_x:=1.465 map_start_y:=0.084 map_start_yaw:=2.178
+./scripts/follow_waypoints.py missions/door_open_mission.yaml 3
 ```
 
 RViz 里读坐标:工具栏 `+` 加 Publish Point,点地图,
@@ -96,3 +111,40 @@ RViz 里读坐标:工具栏 `+` 加 Publish Point,点地图,
 
 前进/后退 ≤0.4 m/s,转向 0.4-0.8 rad/s,不横移;StopZone 只停车。
 实体遥控器是第一优先级急停手段。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ~/Desktop/Final_Work/scripts/grip_lidar_compare.py
+
+  用法（需要 Cyclone 环境，因为要收 /scan）：
+
+  cd ~/Desktop/Final_Work
+  source ~/Desktop/unitree_ros2/setup.sh
+
+  # A = 夹着 walker 的状态：把 walker 夹好，录 10 秒
+  python3 scripts/grip_lidar_compare.py record A
+
+  # B = 没夹/脱手的状态：拿走 walker，录 10 秒
+  python3 scripts/grip_lidar_compare.py record B
+
+  # 出统计 + 对比图
+  python3 scripts/grip_lidar_compare.py compare
+
+  数据存在 record/grip_A.csv、grip_B.csv，对比图 record/grip_compare.png。跑完把 compare 输出的均值/std/最小值发我，我来
+  调 grip_watch 的 hold_max_m 阈值（现在拍脑袋的 0.9m）——这组数据 also 是你论文"失败恢复"章节的素材。

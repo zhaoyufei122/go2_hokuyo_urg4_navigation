@@ -34,6 +34,9 @@ def test_navigation_frames_controller_and_speed_limits():
     assert controller["FollowPath"]["regulated_linear_scaling_min_speed"] == 0.3
     assert controller["FollowPath"]["rotate_to_heading_angular_vel"] == 0.8
     assert controller["FollowPath"]["use_cost_regulated_linear_velocity_scaling"] is False
+    # 2026-08-19: 巡逻必须正向（点2→点3曾被倒开）；倒开拖行走 task_planner
+    # 自己的倒车控制器（NAVIGATE_TO_POINT reverse 模式），不依赖 Nav2 倒开。
+    # 要恢复 Nav2 倒开（拐弯倒车实验）把配置改回 true 即可。
     assert controller["FollowPath"]["allow_reversing"] is False
     assert controller["general_goal_checker"]["xy_goal_tolerance"] == 0.25
     assert controller["general_goal_checker"]["yaw_goal_tolerance"] == 0.25

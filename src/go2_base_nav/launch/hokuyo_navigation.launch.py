@@ -270,6 +270,12 @@ def generate_launch_description():
             DeclareLaunchArgument("use_rviz", default_value="true"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument(
+                "use_cmd_vel_bridge",
+                default_value="true",
+                description="false = 不起内置桥（与 Final_Work 联用时用"
+                            "对方的桥，避免双桥抢 /cmd_vel）",
+            ),
+            DeclareLaunchArgument(
                 "robot_odom_topic",
                 default_value="/utlidar/robot_odom",
             ),
@@ -304,6 +310,23 @@ def generate_launch_description():
                         "use_sim_time": use_sim_time,
                     }
                 ],
+                condition=IfCondition(LaunchConfiguration("use_cmd_vel_bridge")),
+            ),
+            # Nav2 action 中继：跨 RMW 直连 action 会 RTPS 类型不匹配，
+            # task_planner 改走 /task_nav/goal|status 纯话题（见 nav_relay.py）
+            Node(
+                package="go2_base_nav",
+                executable="nav_relay",
+                name="nav_relay",
+                output="screen",
+                parameters=[{"use_sim_time": use_sim_time}],
+            ),
+            Node(
+                package="go2_base_nav",
+                executable="grip_watch",
+                name="grip_watch",
+                output="screen",
+                parameters=[{"use_sim_time": use_sim_time}],
             ),
             Node(
                 package="rviz2",

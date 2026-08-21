@@ -160,12 +160,14 @@ controller_server:
       rotate_to_heading_min_angle: 0.35
       # RPP clamps the commanded rotation rate to
       #   curr_angular_speed + max_angular_accel * control_dt.
-      # With 0.8 @ 10 Hz the first cycle may only command 0.08 rad/s, which
-      # the bridge deadband (0.1) zeroes -> the dog never starts rotating,
-      # odometry stays 0 and the ramp never climbs. 3.5 allows 0.35 on the
-      # first cycle, above the deadband, so rotation actually starts.
-      max_angular_accel: 3.5
-      allow_reversing: false
+      # 2026-07-18 实测：0.35 rad/s 原地转向基本不动（2.5s 只转 6.5°，
+      # Go2 转向真实地板 ~0.5），而 /odom 角速度反馈保持 0 → ramp 永远
+      # 停在 0.35 死循环。8.0 让首周期命令直接到上限 0.8，一把推过地板；
+      # 狗转起来后反馈为正，之后被 rotate_to_heading_angular_vel 0.8 钳住。
+      max_angular_accel: 8.0
+      # Reversing is allowed for short backing maneuvers; note the lidar
+      # blind zone is at the rear, so the StopZone cannot see there.
+      allow_reversing: false  # 2026-08-19：巡逻必须正向（点2→点3曾被倒开）；倒开拖行走 task_planner 自己的倒车控制器
       stateful: true
       time_steps: 56
       model_dt: 0.05

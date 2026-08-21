@@ -18,7 +18,7 @@ def test_recovery_backup_uses_go2_minimum_walking_speed(tree_name):
 
     assert len(backups) == 1
     assert backups[0].attrib["backup_dist"] == "0.20"
-    assert backups[0].attrib["backup_speed"] == "0.30"
+    assert backups[0].attrib["backup_speed"] == "0.40"
 
 
 def test_navigation_launch_rewrites_both_default_behavior_trees():

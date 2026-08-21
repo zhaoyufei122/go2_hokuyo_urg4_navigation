@@ -1,0 +1,138 @@
+"""grip_watch: 用 2D 雷达判断 walker 是否还被夹着（电机无力反馈的替代方案）。
+
+原理（用户 2026-08-21 提出，2026-07-18 更正极性）：
+  * 夹住时 walker 紧贴狗头（低于/近到雷达看不见）→ 正前方扇区【无读数】；
+  * 脱手后 walker 被留在原地，狗继续倒开 → 它【出现】在扇区里且越来越远。
+
+机制：
+  * /walker_gripped = true（拖行中）才监测；
+  * hold_polarity 参数决定判定方向（周一 A/B 标定数据定夺）：
+      'absent'（默认，2026-07-18 用户口述极性）：扇区持续【出现】读数
+                （< appear_max_m）超过 lost_grace_s → LOST；
+      'present'（旧假设）：扇区持续【没有】近读数（最近 > hold_max_m 或
+                全空）超过 lost_grace_s → LOST；
+  * 发布 /walker_lost (Bool, latched 风格周期重发)，task_planner 的倒车
+    任务收到 LOST 立即停车报错。
+"""
+
+import math
+
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import LaserScan
+from std_msgs.msg import Bool
+
+
+def sector_min_range(ranges, angle_min, angle_increment, half_rad,
+                     min_range=0.06):
+    """正前方 ±half_rad 扇区内的最小有效（有限）距离；无有效读数返回 inf。
+
+    min_range 与 scan_filter 一致（0.06m）：/scan_raw 里有 ~0.015m 的
+    机身自身噪声读数，不滤掉会永远误判 HOLDING（2026-07-18 实测）。"""
+    best = math.inf
+    for i, value in enumerate(ranges):
+        angle = angle_min + i * angle_increment
+        wrapped = math.atan2(math.sin(angle), math.cos(angle))
+        if abs(wrapped) <= half_rad and math.isfinite(value) \
+                and value > min_range:
+            best = min(best, value)
+    return best
+
+
+class GripWatch(Node):
+
+    def __init__(self):
+        super().__init__('grip_watch')
+        self.declare_parameter('scan_topic', '/scan_raw')  # 必须看未遮蔽的原始数据
+        # （/scan 在 gripped=true 时被 scan_filter 把正前方 ±45° 置 inf，
+        # grip_watch 盯的 ±20° 全在里面，用 /scan 会立即误报脱手）
+        self.declare_parameter('watch_half_angle_deg', 20.0)
+        self.declare_parameter('hold_max_m', 0.9)   # present 极性：抓住时 walker 必在此距离内
+        self.declare_parameter('lost_grace_s', 0.5)
+        self.declare_parameter('min_range', 0.06)   # 与 scan_filter 一致，滤机身噪声
+        # absent 极性（夹住=扇区无读数）：出现 < appear_max_m 的读数 → 疑似脱手
+        self.declare_parameter('hold_polarity', 'absent')  # 'absent' | 'present'
+        self.declare_parameter('appear_max_m', 2.0)  # absent 极性：多远以内出现才算 walker
+
+        self._half = math.radians(
+            float(self.get_parameter('watch_half_angle_deg').value))
+        self._hold_max = float(self.get_parameter('hold_max_m').value)
+        self._grace = float(self.get_parameter('lost_grace_s').value)
+        self._min_range = float(self.get_parameter('min_range').value)
+        self._polarity = str(self.get_parameter('hold_polarity').value)
+        self._appear_max = float(self.get_parameter('appear_max_m').value)
+
+        self._gripped = False
+        self._lost_since = None
+        self._lost = False
+
+        self.create_subscription(
+            LaserScan,
+            self.get_parameter('scan_topic').value, self._on_scan, 10)
+        self.create_subscription(
+            Bool, '/walker_gripped', self._on_gripped, 10)
+        self.lost_pub = self.create_publisher(Bool, '/walker_lost', 10)
+        self.create_timer(0.1, self._tick)
+        self.get_logger().info(
+            f'grip_watch 就绪: 正前方 ±{math.degrees(self._half):.0f}° 扇区, '
+            f'极性 {self._polarity}（absent=出现<{self._appear_max}m 判脱手 / '
+            f'present=最近>{self._hold_max}m 判脱手）, 宽限 {self._grace} s')
+
+    def _on_gripped(self, msg):
+        self._gripped = bool(msg.data)
+        if not self._gripped:
+            self._lost = False
+            self._lost_since = None
+            self._publish(False)
+
+    def _on_scan(self, msg):
+        if not self._gripped or self._lost:
+            return
+        nearest = sector_min_range(msg.ranges, msg.angle_min,
+                                   msg.angle_increment, self._half,
+                                   self._min_range)
+        now = self.get_clock().now()
+        if self._polarity == 'absent':
+            # 夹住 = 扇区无读数；出现近读数 = walker 被留下 → 疑似脱手
+            suspect = nearest < self._appear_max
+        else:
+            # 夹住 = 扇区有近读数；读数变远/消失 → 疑似脱手
+            suspect = nearest >= self._hold_max
+        if not suspect:
+            self._lost_since = None
+            return
+        if self._lost_since is None:
+            self._lost_since = now
+            return
+        if (now - self._lost_since).nanoseconds / 1e9 >= self._grace:
+            self._lost = True
+            self.get_logger().warn(
+                f'grip_watch: 脱手！极性={self._polarity} '
+                f'扇区最近读数={nearest:.2f}m 持续>{self._grace}s')
+            self._publish(True)
+
+    def _publish(self, lost):
+        msg = Bool()
+        msg.data = lost
+        self.lost_pub.publish(msg)
+
+    def _tick(self):
+        if self._gripped:
+            self._publish(self._lost)
+
+
+def main():
+    rclpy.init()
+    node = GripWatch()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

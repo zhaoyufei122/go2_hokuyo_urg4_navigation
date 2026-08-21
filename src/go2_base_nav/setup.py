@@ -47,6 +47,8 @@ setup(
             "scan_accumulator = go2_base_nav.scan_accumulator:main",
             "go2_cmd_vel_bridge = go2_base_nav.cmd_vel_bridge:main",
             "scan_filter = go2_base_nav.scan_filter:main",
+            "nav_relay = go2_base_nav.nav_relay:main",
+            "grip_watch = go2_base_nav.grip_watch:main",
         ],
     },
 )
