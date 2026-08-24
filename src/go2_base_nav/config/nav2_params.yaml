@@ -277,8 +277,11 @@ local_costmap:
       plugins: ["obstacle_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
+        # 2026-08-24 实测（test5）：walker 旁有障碍物时 0.30m 膨胀把实际可通行
+        # 空间全吃掉（0.9m 通道只剩 0.3m < footprint 半宽），Nav2 拒不动弹。
+        # Go2 实际宽度 0.4m，0.15m 膨胀已够安全余量。
         cost_scaling_factor: 5.0
-        inflation_radius: 0.30
+        inflation_radius: 0.15
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
@@ -350,8 +353,9 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
+        # 2026-08-24 实测（test5）：同 local costmap，0.30→0.15
         cost_scaling_factor: 5.0
-        inflation_radius: 0.30
+        inflation_radius: 0.15
       always_send_full_costmap: True
 
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
