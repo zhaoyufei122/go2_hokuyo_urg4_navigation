@@ -42,9 +42,23 @@ ros2 run nav2_map_server map_saver_cli -f /home/yufei/Desktop/go2_base_navi/maps
 ## 4. 导航(终端 2)
 
 ```bash
-# SLAM Toolbox 定位(推荐,不用点初始位姿):
+# 与 Final_Work 联用（task_planner 巡逻/拖人区）的完整命令——
+# 注意 use_cmd_vel_bridge:=false（关内置桥，统一用 Final_Work 的桥，
+# 保留 vy 横移）：
+cd ~/Desktop/go2_base_navi
+./scripts/start_hokuyo_navigation.sh maps/hokuyo_room.yaml \
+  localization:=slam_toolbox \
+  slam_posegraph:=maps/hokuyo_room \
+  map_start_x:=-0.905 map_start_y:=0.162 map_start_yaw:=-0.089 \
+  use_cmd_vel_bridge:=false
+
+# 2026-08-24 起：slam_posegraph 给相对路径也行，脚本自动转绝对路径；
+# 文件不存在会直接报错退出（此前相对路径静默失败 → 空图定位 →
+# 看起来像重新建图，rviz 里位置很不对）。
+
+# 独立用（自带 cmd_vel 桥，不接 task_planner）:
 ./scripts/start_hokuyo_navigation.sh localization:=slam_toolbox \
-  slam_posegraph:=/home/yufei/Desktop/go2_base_navi/maps/hokuyo_room
+  slam_posegraph:=maps/hokuyo_room
 
 # AMCL 模式(需 RViz 里点 2D Pose Estimate):
 ./scripts/start_hokuyo_navigation.sh
@@ -54,7 +68,7 @@ ros2 run nav2_map_server map_saver_cli -f /home/yufei/Desktop/go2_base_navi/maps
 
 ```bash
 # 狗停在某点,读出当前 x/y/yaw(只打印不保存):
-./scripts/record_waypoint.py
+    ./scripts/record_waypoint.py
 
 # 追加存到文件(攒任务点位):
 ./scripts/record_waypoint.py missions/my_task.yaml
