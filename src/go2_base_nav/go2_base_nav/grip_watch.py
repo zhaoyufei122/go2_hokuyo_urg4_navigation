@@ -22,7 +22,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float32
 
 
 def sector_min_range(ranges, angle_min, angle_increment, half_rad,
@@ -76,6 +76,9 @@ class GripWatch(Node):
         self.create_subscription(
             Bool, '/walker_gripped', self._on_gripped, 10)
         self.lost_pub = self.create_publisher(Bool, '/walker_lost', 10)
+        # 前向扇区最近距离始终发布：脱手后自动恢复（NavigateToPoint RECOVER
+        # 阶段）需要它闭环开回 walker 旁
+        self.range_pub = self.create_publisher(Float32, '/walker_front_range', 10)
         self.create_timer(0.1, self._tick)
         self.get_logger().info(
             f'grip_watch 就绪: 正前方 ±{math.degrees(self._half):.0f}° 扇区, '
@@ -90,11 +93,14 @@ class GripWatch(Node):
             self._publish(False)
 
     def _on_scan(self, msg):
-        if not self._gripped or self._lost:
-            return
         nearest = sector_min_range(msg.ranges, msg.angle_min,
                                    msg.angle_increment, self._half,
                                    self._min_range)
+        range_msg = Float32()
+        range_msg.data = float(nearest)
+        self.range_pub.publish(range_msg)
+        if not self._gripped or self._lost:
+            return
         now = self.get_clock().now()
         if self._polarity == 'absent':
             # 夹住 = 扇区无读数；出现近读数 = walker 被留下 → 疑似脱手
