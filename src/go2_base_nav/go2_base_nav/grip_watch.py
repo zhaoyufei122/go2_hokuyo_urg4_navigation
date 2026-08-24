@@ -1,16 +1,18 @@
 """grip_watch: 用 2D 雷达判断 walker 是否还被夹着（电机无力反馈的替代方案）。
 
-原理（用户 2026-08-21 提出，2026-07-18 更正极性）：
-  * 夹住时 walker 紧贴狗头（低于/近到雷达看不见）→ 正前方扇区【无读数】；
-  * 脱手后 walker 被留在原地，狗继续倒开 → 它【出现】在扇区里且越来越远。
+原理（用户 2026-08-21 提出，2026-08-24 A/B 标定实测定论）：
+  * 夹住时 walker 在正前方 ~0.38m 处有稳定近读数（随狗一起动）；
+  * 脱手后 walker 被留在原地，狗继续倒开 → 读数变远（0.5m 后 ~0.62m）。
+  * 实测两簇分布：夹住 0.384±0.003m / 脱手 0.616±0.002m，间距 232mm，
+    阈值取中点 0.5m（hold_max_m）。
 
 机制：
   * /walker_gripped = true（拖行中）才监测；
-  * hold_polarity 参数决定判定方向（周一 A/B 标定数据定夺）：
-      'absent'（默认，2026-07-18 用户口述极性）：扇区持续【出现】读数
-                （< appear_max_m）超过 lost_grace_s → LOST；
-      'present'（旧假设）：扇区持续【没有】近读数（最近 > hold_max_m 或
-                全空）超过 lost_grace_s → LOST；
+  * hold_polarity 参数决定判定方向：
+      'present'（默认，标定结论）：扇区持续【没有】近读数（最近 >
+                hold_max_m 或全空）超过 lost_grace_s → LOST；
+      'absent'（备用假设）：扇区持续【出现】读数（< appear_max_m）
+                超过 lost_grace_s → LOST；
   * 发布 /walker_lost (Bool, latched 风格周期重发)，task_planner 的倒车
     任务收到 LOST 立即停车报错。
 """
@@ -47,11 +49,13 @@ class GripWatch(Node):
         # （/scan 在 gripped=true 时被 scan_filter 把正前方 ±45° 置 inf，
         # grip_watch 盯的 ±20° 全在里面，用 /scan 会立即误报脱手）
         self.declare_parameter('watch_half_angle_deg', 20.0)
-        self.declare_parameter('hold_max_m', 0.9)   # present 极性：抓住时 walker 必在此距离内
+        self.declare_parameter('hold_max_m', 0.5)   # present 极性：夹住时 walker 必在此距离内
+        # （2026-08-24 A/B 标定：夹住 0.384±0.003m / 脱手 0.616±0.002m，取中点）
         self.declare_parameter('lost_grace_s', 0.5)
         self.declare_parameter('min_range', 0.06)   # 与 scan_filter 一致，滤机身噪声
         # absent 极性（夹住=扇区无读数）：出现 < appear_max_m 的读数 → 疑似脱手
-        self.declare_parameter('hold_polarity', 'absent')  # 'absent' | 'present'
+        # 2026-08-24 标定结论：实测夹住时有 0.38m 近读数 → 用 'present'
+        self.declare_parameter('hold_polarity', 'present')  # 'absent' | 'present'
         self.declare_parameter('appear_max_m', 2.0)  # absent 极性：多远以内出现才算 walker
 
         self._half = math.radians(
