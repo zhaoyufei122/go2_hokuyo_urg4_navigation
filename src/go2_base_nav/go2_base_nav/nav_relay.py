@@ -26,10 +26,6 @@ class NavRelay(Node):
         self.create_subscription(String, '/task_nav/goal', self._on_goal, 10)
         self.status_pub = self.create_publisher(String, '/task_nav/status', 10)
         self._send_future = None
-        # 已有目标在跑：先取消再发新的（巡逻 NAV_APPROACH 会按最新 TF
-        # 周期重发目标点，2026-08-24）
-        if self._goal_handle is not None:
-            self._goal_handle.cancel_goal_async()
         self._goal_handle = None
         self._result_future = None
         self._last_remaining = -1.0
@@ -64,6 +60,10 @@ class NavRelay(Node):
         yaw = math.radians(yaw_deg)
         goal.pose.pose.orientation.z = math.sin(yaw / 2.0)
         goal.pose.pose.orientation.w = math.cos(yaw / 2.0)
+        # 已有目标在跑：先取消再发新的（巡逻 NAV_APPROACH 会按最新 TF
+        # 周期重发目标点，2026-08-24）
+        if self._goal_handle is not None:
+            self._goal_handle.cancel_goal_async()
         self._goal_handle = None
         self._result_future = None
         self._last_remaining = -1.0
