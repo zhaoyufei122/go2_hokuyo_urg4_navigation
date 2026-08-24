@@ -28,6 +28,29 @@ if [[ "${map_yaml}" != /* ]]; then
     map_yaml="$(realpath "${map_yaml}")"
 fi
 
+# slam_posegraph 也必须转绝对路径：ros2 launch 起节点的 CWD 不保证是
+# 脚本所在目录，相对路径会让 slam_toolbox 找不到文件（日志报
+# "Failed to open requested file"），posegraph 加载失败 = 拿空图做
+# localization = 看起来像重新建图（2026-08-24 实测踩坑）。
+# 同时去掉用户误带的 .posegraph 后缀（slam_toolbox 自己会补）。
+args=()
+for arg in "$@"; do
+    if [[ "${arg}" == slam_posegraph:=* ]]; then
+        pg="${arg#slam_posegraph:=}"
+        pg="${pg%.posegraph}"
+        if [[ -n "${pg}" && "${pg}" != /* ]]; then
+            pg="$(realpath "${pg}")"
+        fi
+        if [[ -n "${pg}" && ! -f "${pg}.posegraph" ]]; then
+            printf 'slam_posegraph not found: %s.posegraph\n' "${pg}" >&2
+            exit 1
+        fi
+        arg="slam_posegraph:=${pg}"
+    fi
+    args+=("${arg}")
+done
+set -- "${args[@]}"
+
 set +u
 source "${unitree_setup}"
 source "${workspace_setup}"
