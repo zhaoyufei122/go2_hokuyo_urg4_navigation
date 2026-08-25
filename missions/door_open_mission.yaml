@@ -1,0 +1,24 @@
+# 开门版地图(hokuyo_door_open)验证任务:依次走 5 个点
+# 起始位姿(2D estimate 点): x=1.465 y=0.084 yaw=124.8deg
+# 启动:
+#   ./scripts/start_hokuyo_navigation.sh maps/hokuyo_door_open.yaml \
+#     localization:=slam_toolbox \
+#     slam_posegraph:=/home/yufei/Desktop/go2_base_navi/maps/hokuyo_door_open \
+#     map_start_x:=1.465 map_start_y:=0.084 map_start_yaw:=2.178
+# 执行(每点停 3 秒):
+#   ./scripts/follow_waypoints.py missions/door_open_mission.yaml 3
+- x: 2.224
+  y: 1.287
+  yaw_deg: 57.5
+- x: 1.32
+  y: 1.068
+  yaw_deg: -177.9
+- x: -0.15
+  y: 0.447
+  yaw_deg: -160.2
+- x: -2.323
+  y: -1.009
+  yaw_deg: -154.1
+- x: -3.086
+  y: -1.446
+  yaw_deg: -61.7

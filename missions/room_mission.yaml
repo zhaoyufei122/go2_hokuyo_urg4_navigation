@@ -1,0 +1,18 @@
+# 老房间新图(hokuyo_room)验证任务:依次走 3 个点
+# 起始位姿(estimate 点): x=-0.905 y=0.162 yaw=-5.1deg
+# 启动:
+#   ./scripts/start_hokuyo_navigation.sh maps/hokuyo_room.yaml \
+#     localization:=slam_toolbox \
+#     slam_posegraph:=/home/yufei/Desktop/go2_base_navi/maps/hokuyo_room \
+#     map_start_x:=-0.905 map_start_y:=0.162 map_start_yaw:=-0.089
+# 执行(每点停 3 秒):
+#   ./scripts/follow_waypoints.py missions/room_mission.yaml 3
+- x: -0.156
+  y: -1.15
+  yaw_deg: -73.6
+- x: 0.093
+  y: -0.156
+  yaw_deg: 80.3
+- x: 0.596
+  y: 1.848
+  yaw_deg: 87.7
