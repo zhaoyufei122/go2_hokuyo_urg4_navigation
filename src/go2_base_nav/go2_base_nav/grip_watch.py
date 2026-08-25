@@ -57,6 +57,11 @@ class GripWatch(Node):
         # 2026-08-24 标定结论：实测夹住时有 0.38m 近读数 → 用 'present'
         self.declare_parameter('hold_polarity', 'present')  # 'absent' | 'present'
         self.declare_parameter('appear_max_m', 2.0)  # absent 极性：多远以内出现才算 walker
+        # walker 特征距离带（标定 0.384m）：只认这个范围内的读数才算
+        # "还夹着"。臂在前伸位（~0.2m）或墙（>0.6m）不会误判。
+        # 2026-08-25 用户要求更严格
+        self.declare_parameter('hold_min_m', 0.25)  # 带的下限
+        # hold_max_m 就是带的上限（0.5）
 
         self._half = math.radians(
             float(self.get_parameter('watch_half_angle_deg').value))
@@ -65,6 +70,7 @@ class GripWatch(Node):
         self._min_range = float(self.get_parameter('min_range').value)
         self._polarity = str(self.get_parameter('hold_polarity').value)
         self._appear_max = float(self.get_parameter('appear_max_m').value)
+        self._hold_min = float(self.get_parameter('hold_min_m').value)
 
         self._gripped = False
         self._lost_since = None
@@ -106,8 +112,9 @@ class GripWatch(Node):
             # 夹住 = 扇区无读数；出现近读数 = walker 被留下 → 疑似脱手
             suspect = nearest < self._appear_max
         else:
-            # 夹住 = 扇区有近读数；读数变远/消失 → 疑似脱手
-            suspect = nearest >= self._hold_max
+            # 夹住 = 扇区有 walker 特征距离带内的读数；读数超出带的范围
+            # （太近=臂挡住了 / 太远=walker 被留下）→ 疑似脱手
+            suspect = not (self._hold_min <= nearest < self._hold_max)
         if not suspect:
             self._lost_since = None
             return
