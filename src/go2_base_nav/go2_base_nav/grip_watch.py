@@ -52,6 +52,9 @@ class GripWatch(Node):
         self.declare_parameter('hold_max_m', 0.5)   # present 极性：夹住时 walker 必在此距离内
         # （2026-08-24 A/B 标定：夹住 0.384±0.003m / 脱手 0.616±0.002m，取中点）
         self.declare_parameter('lost_grace_s', 0.5)
+        # 启动宽限：gripped 变 true 后等臂到位稳定再开始监控
+        # （2026-08-25 实测：CATCH 完成仅 0.65s 就误报脱手，臂还没到位）
+        self.declare_parameter('startup_grace_s', 2.0)
         self.declare_parameter('min_range', 0.06)   # 与 scan_filter 一致，滤机身噪声
         # absent 极性（夹住=扇区无读数）：出现 < appear_max_m 的读数 → 疑似脱手
         # 2026-08-24 标定结论：实测夹住时有 0.38m 近读数 → 用 'present'
@@ -73,6 +76,7 @@ class GripWatch(Node):
         self._hold_min = float(self.get_parameter('hold_min_m').value)
 
         self._gripped = False
+        self._gripped_since = None  # 启动宽限用
         self._lost_since = None
         self._lost = False
 
@@ -96,7 +100,10 @@ class GripWatch(Node):
         if not self._gripped:
             self._lost = False
             self._lost_since = None
+            self._gripped_since = None
             self._publish(False)
+        else:
+            self._gripped_since = self.get_clock().now()
 
     def _on_scan(self, msg):
         nearest = sector_min_range(msg.ranges, msg.angle_min,
@@ -107,6 +114,12 @@ class GripWatch(Node):
         self.range_pub.publish(range_msg)
         if not self._gripped or self._lost:
             return
+        # 启动宽限：gripped 变 true 后等臂到位稳定再监控
+        if self._gripped_since is not None:
+            elapsed = (self.get_clock().now()
+                       - self._gripped_since).nanoseconds / 1e9
+            if elapsed < float(self.get_parameter('startup_grace_s').value):
+                return
         now = self.get_clock().now()
         if self._polarity == 'absent':
             # 夹住 = 扇区无读数；出现近读数 = walker 被留下 → 疑似脱手
