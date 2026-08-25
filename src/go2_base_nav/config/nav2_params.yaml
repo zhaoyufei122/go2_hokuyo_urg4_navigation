@@ -274,6 +274,9 @@ local_costmap:
       height: 3
       resolution: 0.05
       footprint: "[[0.35, 0.20], [0.35, -0.20], [-0.35, -0.20], [-0.35, 0.20]]"
+      # 2026-08-25（pic22-25）：旋转时 footprint 角落扫进膨胀区。pad 5cm
+      # 让规划器把路径放得离障碍更远，等效“绕大一点的弯”
+      footprint_padding: 0.05
       plugins: ["obstacle_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -321,6 +324,8 @@ global_costmap:
       robot_base_frame: base_footprint
       transform_tolerance: 0.5
       footprint: "[[0.35, 0.20], [0.35, -0.20], [-0.35, -0.20], [-0.35, 0.20]]"
+      # 同 local costmap（2026-08-25 pic22-25 实测旋转扫膨胀区）
+      footprint_padding: 0.05
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
