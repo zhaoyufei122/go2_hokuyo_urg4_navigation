@@ -137,9 +137,10 @@ controller_server:
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: 0.4
-      lookahead_dist: 0.6
+      # 2026-08-25 pic32-33：0.6→0.4，贴路径更紧、减少拐角切割
+      lookahead_dist: 0.4
       min_lookahead_dist: 0.3
-      max_lookahead_dist: 0.9
+      max_lookahead_dist: 0.7
       lookahead_time: 1.5
       rotate_to_heading_angular_vel: 0.8
       use_velocity_scaled_lookahead_dist: true
@@ -157,7 +158,8 @@ controller_server:
       # Trigger rotate-in-place for anything beyond ~20 deg: arc-creeping at
       # high curvature outputs <0.1 rad/s, which the cmd_vel bridge deadband
       # then zeroes out, leaving the dog frozen until the progress timeout.
-      rotate_to_heading_min_angle: 0.35
+      # 2026-08-25 pic32-33：0.35→0.50，更早触发原地对准，不走切弯弧线
+      rotate_to_heading_min_angle: 0.50
       # RPP clamps the commanded rotation rate to
       #   curr_angular_speed + max_angular_accel * control_dt.
       # 2026-07-18 实测：0.35 rad/s 原地转向基本不动（2.5s 只转 6.5°，
