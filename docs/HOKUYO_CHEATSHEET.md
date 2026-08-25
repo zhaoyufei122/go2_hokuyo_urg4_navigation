@@ -101,6 +101,13 @@ cd ~/Desktop/go2_base_navi
   slam_posegraph:=/home/yufei/Desktop/go2_base_navi/maps/hokuyo_door_open \
   map_start_x:=1.465 map_start_y:=0.084 map_start_yaw:=2.178
 ./scripts/follow_waypoints.py missions/door_open_mission.yaml 3
+
+# C. 开门 v2 版（2026-08-25 续建，5 巡逻点，Final_Work 联用）:
+./scripts/start_hokuyo_navigation.sh maps/hokuyo_door_open_v2.yaml \
+  localization:=slam_toolbox \
+  slam_posegraph:=maps/hokuyo_door_open_v2 \
+  map_start_x:=-0.549 map_start_y:=1.9 map_start_yaw:=-1.850 \
+  use_cmd_vel_bridge:=false
 ```
 
 RViz 里读坐标:工具栏 `+` 加 Publish Point,点地图,
