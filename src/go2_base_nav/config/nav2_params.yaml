@@ -498,7 +498,10 @@ collision_monitor:
     StopZone:
       type: "polygon"
       points: "[[0.45, 0.28], [0.45, -0.28], [-0.40, -0.28], [-0.40, 0.28]]"
-      action_type: "stop"
+      # 2026-08-25 pic30：stop→slowdown。狗贴墙时 BackUp 恢复也被 stop 拦死
+      # （墙点在 StopZone 里），15 次恢复循环后 abort。slowdown 允许低速脱困
+      action_type: "slowdown"
+      slowdown_ratio: 0.2
       min_points: 4
       visualize: True
       enabled: True

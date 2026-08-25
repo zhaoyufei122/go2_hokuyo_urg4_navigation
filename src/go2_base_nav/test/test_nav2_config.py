@@ -45,7 +45,7 @@ def test_navigation_frames_controller_and_speed_limits():
     assert smoother["min_velocity"] == [-0.4, 0.0, -0.8]
     assert smoother["velocity_timeout"] == 0.5
     assert collision["source_timeout"] == 0.5
-    assert collision["StopZone"]["action_type"] == "stop"
+    assert collision["StopZone"]["action_type"] == "slowdown"  # 2026-08-25 pic30：stop 把 BackUp 恢复也卡死
     assert collision["StopZone"]["min_points"] == 4
     assert collision["StopZone"]["points"] == (
         "[[0.45, 0.28], [0.45, -0.28], [-0.40, -0.28], [-0.40, 0.28]]"
