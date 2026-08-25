@@ -33,7 +33,8 @@ def test_navigation_frames_controller_and_speed_limits():
     assert controller["FollowPath"]["min_approach_linear_velocity"] == 0.3
     assert controller["FollowPath"]["regulated_linear_scaling_min_speed"] == 0.3
     assert controller["FollowPath"]["rotate_to_heading_angular_vel"] == 0.8
-    assert controller["FollowPath"]["use_cost_regulated_linear_velocity_scaling"] is False
+    # 2026-08-25: 开启障碍减速——切弯扫进膨胀区（转角半径 v/w 太大）的修复
+    assert controller["FollowPath"]["use_cost_regulated_linear_velocity_scaling"] is True
     # 2026-08-19: 巡逻必须正向（点2→点3曾被倒开）；倒开拖行走 task_planner
     # 自己的倒车控制器（NAVIGATE_TO_POINT reverse 模式），不依赖 Nav2 倒开。
     # 要恢复 Nav2 倒开（拐弯倒车实验）把配置改回 true 即可。
