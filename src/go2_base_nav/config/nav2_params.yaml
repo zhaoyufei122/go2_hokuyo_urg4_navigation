@@ -323,11 +323,10 @@ global_costmap:
       global_frame: map
       robot_base_frame: base_footprint
       transform_tolerance: 0.5
-      # 全局规划用圆形 footprint：旋转扫掠半径 = √(0.35²+0.20²)+0.02 余量
-      # ≈ 0.42m（2026-08-25 pic22-27：矩形 footprint 原地旋转角落扫进膨胀区）。
-      # 全局路径保持 ≥0.42m 净空 → 任何位置原地转都安全；局部仍用矩形
-      # （精对准 walker 不受影响，FIND 有自己的雷达安全门）。
-      robot_radius: 0.42
+      # 2026-08-25 pic31：圆形 footprint（0.42m 半径）太保守，把狗能正着
+      # 开过去的缝隙判死。改回矩形。旋转扫膨胀区不是致命问题（膨胀是软代价，
+      # 扫进去只是代价高），真防撞由 collision_monitor 减速底底。
+      footprint: "[[0.35, 0.20], [0.35, -0.20], [-0.35, -0.20], [-0.35, 0.20]]"
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]

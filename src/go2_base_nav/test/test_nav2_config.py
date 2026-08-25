@@ -58,13 +58,9 @@ def test_costmaps_use_exact_footprint_and_scan_obstacles():
     for costmap_name in ("local_costmap", "global_costmap"):
         params = config[costmap_name][costmap_name]["ros__parameters"]
         assert params["robot_base_frame"] == "base_footprint"
-        if costmap_name == "local_costmap":
-            # 局部仍用矩形 footprint（精对准 walker 不受影响）
-            assert params["footprint"] == FOOTPRINT
-        else:
-            # 全局用圆形 footprint：旋转扫掠半径 0.42m，路径保持安全净空
-            # （2026-08-25 pic22-27：矩形原地旋转角落扫进膨胀区）
-            assert params["robot_radius"] == 0.42
+        # 2026-08-25 pic31：圆形 footprint 太保守堵死缝隙，改回矩形。
+        # 旋转扫膨胀区不是致命的（膨胀=软代价），防撞由 collision_monitor 底底
+        assert params["footprint"] == FOOTPRINT
         assert params["resolution"] == 0.05
         obstacle = params["obstacle_layer"]
         assert obstacle["observation_sources"] == "scan"
