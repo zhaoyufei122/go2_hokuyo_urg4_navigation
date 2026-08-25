@@ -24,6 +24,11 @@ GO2_HOKUYO_SSH_TARGET=unitree@192.168.123.18 ./scripts/start_hokuyo_lidar.sh
 
 ```bash
 ./scripts/start_hokuyo_mapping.sh
+
+# 续建：在旧图基础上继续建（房间格局微调时用，狗停在原建图起点）：
+./scripts/start_hokuyo_mapping.sh \
+  continue_from:=/home/yufei/Desktop/go2_base_navi/maps/hokuyo_door_open
+# 存的时候换个新名字（如 hokuyo_door_open_v2），别覆盖原图。
 ```
 
 站立、慢速、转弯分段;量程 4 m,别离墙太远。门开着建图可覆盖两侧。

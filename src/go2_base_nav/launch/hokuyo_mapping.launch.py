@@ -13,6 +13,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from nav2_common.launch import RewrittenYaml
 
 from go2_base_nav.mapping_bag import build_slamtec_bag_record_command
 
@@ -58,12 +59,26 @@ def generate_launch_description():
 
     use_rviz = LaunchConfiguration("use_rviz")
     use_sim_time = LaunchConfiguration("use_sim_time")
+    # 续建：加载已有 posegraph 继续建图（房间格局微调时不用从零建）。
+    # slam_toolbox mapping 模式 + map_file_name = 旧图接着优化。
+    continue_from = LaunchConfiguration("continue_from")
+    slam_config_final = RewrittenYaml(
+        source_file=str(slam_config),
+        param_rewrites={"map_file_name": continue_from},
+        convert_types=True,
+    )
     record_bag = LaunchConfiguration("record_bag")
 
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_rviz", default_value="true"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument(
+                "continue_from",
+                default_value="",
+                description="加载已有 posegraph 续建（路径不带 .posegraph 后缀；"
+                            "空 = 从零建新图）。狗必须停在当时建图的起点位置。",
+            ),
             DeclareLaunchArgument("record_bag", default_value="false"),
             DeclareLaunchArgument(
                 "bag_output_root",
@@ -91,7 +106,7 @@ def generate_launch_description():
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(slam_launch),
                 launch_arguments={
-                    "slam_params_file": str(slam_config),
+                    "slam_params_file": slam_config_final,
                     "use_sim_time": use_sim_time,
                 }.items(),
             ),
