@@ -112,9 +112,10 @@ class GripWatch(Node):
             # 夹住 = 扇区无读数；出现近读数 = walker 被留下 → 疑似脱手
             suspect = nearest < self._appear_max
         else:
-            # 夹住 = 扇区有 walker 特征距离带内的读数；读数超出带的范围
-            # （太近=臂挡住了 / 太远=walker 被留下）→ 疑似脱手
-            suspect = not (self._hold_min <= nearest < self._hold_max)
+            # 夹住 = 扇区有近读数；读数变远/消失 → 疑似脱手
+            # （2026-08-25：去掉距离带，太严格误报——臂在抓取位时读数
+            # 偏出带就误判，实际 walker 夹得好好的）
+            suspect = nearest >= self._hold_max
         if not suspect:
             self._lost_since = None
             return
