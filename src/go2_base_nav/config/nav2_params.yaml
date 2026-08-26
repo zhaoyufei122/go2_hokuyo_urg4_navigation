@@ -285,7 +285,7 @@ local_costmap:
         # 2026-08-24 实测（test5）：walker 旁有障碍物时 0.30m 膨胀把实际可通行
         # 空间全吃掉（0.9m 通道只剩 0.3m < footprint 半宽），Nav2 拒不动弹。
         # Go2 实际宽度 0.4m。用户评 0.15 太激进，取 0.20 折中。
-        cost_scaling_factor: 1.5
+        cost_scaling_factor: 1.0
         inflation_radius: 0.30
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
@@ -362,7 +362,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         # 2026-08-24 实测（test5）：同 local costmap，0.30→0.20
-        cost_scaling_factor: 1.5
+        cost_scaling_factor: 1.0
         inflation_radius: 0.30
       always_send_full_costmap: True
 

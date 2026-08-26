@@ -70,7 +70,7 @@ def test_costmaps_use_exact_footprint_and_scan_obstacles():
         # 用户评：0.15 太激进，取 0.20 折中）
         assert params["inflation_layer"]["inflation_radius"] == 0.30
         # 2026-08-25：5.0→2.5，代价衰减更慢 → 路径被推离墙更远（贴墙问题）
-        assert params["inflation_layer"]["cost_scaling_factor"] == 1.5
+        assert params["inflation_layer"]["cost_scaling_factor"] == 1.0
 
 
 def test_costmaps_clear_the_scan_filter_infinities():
