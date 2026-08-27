@@ -66,11 +66,37 @@ def test_costmaps_use_exact_footprint_and_scan_obstacles():
         assert obstacle["observation_sources"] == "scan"
         assert obstacle["scan"]["topic"] == "/scan"
         assert obstacle["scan"]["data_type"] == "LaserScan"
-        # 2026-08-24：0.30→0.20（walker 旁有障碍时 0.30 膨胀吃掉可通行空间；
-        # 用户评：0.15 太激进，取 0.20 折中）
-        assert params["inflation_layer"]["inflation_radius"] == 0.30
         # 2026-08-25：5.0→2.5，代价衰减更慢 → 路径被推离墙更远（贴墙问题）
         assert params["inflation_layer"]["cost_scaling_factor"] == 1.0
+
+    local_params = config["local_costmap"]["local_costmap"]["ros__parameters"]
+    global_params = config["global_costmap"]["global_costmap"]["ros__parameters"]
+    # The local controller keeps the field proven around the physical robot,
+    # while the global planner needs overlapping wall costs through the doorway
+    # so TowGrid has a center-biased potential field to optimize.
+    assert local_params["inflation_layer"]["inflation_radius"] == 0.30
+    assert global_params["inflation_layer"]["inflation_radius"] == 0.45
+
+
+def test_tow_planner_is_center_biased_without_changing_patrol_planner():
+    planner = _config()["planner_server"]["ros__parameters"]
+
+    assert planner["planner_plugins"] == ["GridBased", "TowGrid"]
+    assert planner["GridBased"] == {
+        "plugin": "nav2_navfn_planner::NavfnPlanner",
+        "tolerance": 0.5,
+        "use_astar": False,
+        "allow_unknown": True,
+    }
+    assert planner["TowGrid"] == {
+        "plugin": "nav2_smac_planner::SmacPlanner2D",
+        "tolerance": 0.0,
+        "downsample_costmap": False,
+        "allow_unknown": False,
+        "max_planning_time": 2.0,
+        "cost_travel_multiplier": 2.0,
+        "use_final_approach_orientation": False,
+    }
 
 
 def test_costmaps_clear_the_scan_filter_infinities():

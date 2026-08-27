@@ -18,8 +18,10 @@
   <exec_depend>nav2_collision_monitor</exec_depend>
   <exec_depend>nav2_common</exec_depend>
   <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
   <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
   <exec_depend>nav2_rviz_plugins</exec_depend>
+  <exec_depend>nav2_smac_planner</exec_depend>
   <exec_depend>nav2_velocity_smoother</exec_depend>
   <exec_depend>pcl_ros</exec_depend>
   <exec_depend>pointcloud_to_laserscan</exec_depend>
@@ -31,6 +33,7 @@
   <exec_depend>rviz2</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>unitree_api</exec_depend>
   <exec_depend>urg_node</exec_depend>

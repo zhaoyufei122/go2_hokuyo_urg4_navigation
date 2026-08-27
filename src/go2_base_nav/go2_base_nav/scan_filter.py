@@ -11,25 +11,48 @@ import math
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
 
 
 def filter_ranges(ranges, min_range, max_range,
                   angle_min=0.0, angle_increment=1.0,
-                  mask_center_rad=None, mask_half_rad=0.0):
+                  mask_center_rad=None, mask_half_rad=0.0,
+                  mask_payload_half_rad=math.radians(70.0),
+                  mask_payload_max_range=0.65,
+                  mask_payload_half_width=0.35):
     """Return a new list where out-of-range readings become +inf.
 
     mask_center_rad is not None 时，额外把以 mask_center_rad 为中心、
     半宽 mask_half_rad 的扇区遮蔽成 +inf（抓住 walker 拖行时遮住正前方
-    被 walker 挡住的区域，防止它进定位/代价地图）。
+    被 walker 挡住的区域，防止它进定位/代价地图）。同时仅在
+    mask_payload_half_rad 内遮蔽近距离、有限横向宽度的 walker 包络；
+    斜抓时露出主扇区的 walker 会被滤掉，但远墙和真正侧面的门框保留。
     """
     filtered = []
     for i, value in enumerate(ranges):
         if mask_center_rad is not None:
             angle = angle_min + i * angle_increment
-            if abs(math.atan2(math.sin(angle - mask_center_rad),
-                              math.cos(angle - mask_center_rad))) <= mask_half_rad:
+            angle_delta = math.atan2(
+                math.sin(angle - mask_center_rad),
+                math.cos(angle - mask_center_rad),
+            )
+            in_front_sector = abs(angle_delta) <= mask_half_rad
+            in_payload_envelope = (
+                abs(angle_delta) <= mask_payload_half_rad
+                and math.isfinite(value)
+                and 0.0 < value <= mask_payload_max_range
+                and value * math.cos(angle_delta) > 0.0
+                and abs(value * math.sin(angle_delta))
+                <= mask_payload_half_width
+            )
+            if in_front_sector or in_payload_envelope:
                 filtered.append(math.inf)
                 continue
         if math.isnan(value) or math.isinf(value):
@@ -62,6 +85,14 @@ class ScanFilter(Node):
         self._mask_half = math.radians(
             float(self.get_parameter("mask_half_angle_deg").value))
         self._mask_enabled = False
+        self._mask_ready = False
+
+        gripped_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
 
         input_topic = self.get_parameter("input_topic").value
         output_topic = self.get_parameter("output_topic").value
@@ -72,11 +103,14 @@ class ScanFilter(Node):
         # same on both sides. Reliable publishers are still compatible with
         # best-effort subscribers (RViz, slam_toolbox).
         self._publisher = self.create_publisher(LaserScan, output_topic, 10)
+        self._ready_pub = self.create_publisher(
+            Bool, "/scan_filter/mask_ready", gripped_qos)
         self._subscription = self.create_subscription(
             LaserScan, input_topic, self._on_scan, 10
         )
         self.create_subscription(
-            Bool, "/walker_gripped", self._on_gripped, 10)
+            Bool, "/walker_gripped", self._on_gripped, gripped_qos)
+        self._publish_mask_ready(False)
         self.get_logger().info(
             f"Filtering {input_topic} -> {output_topic}, "
             f"keeping ({self._min_range}, {self._max_range}) m; "
@@ -87,6 +121,8 @@ class ScanFilter(Node):
     def _on_gripped(self, msg):
         if bool(msg.data) != self._mask_enabled:
             self._mask_enabled = bool(msg.data)
+            self._mask_ready = False
+            self._publish_mask_ready(False)
             self.get_logger().info(
                 '前方遮蔽开启（拖着 walker，正前方读数忽略）'
                 if self._mask_enabled else '前方遮蔽关闭（已放下 walker）')
@@ -111,6 +147,16 @@ class ScanFilter(Node):
         )
         output.intensities = list(msg.intensities)
         self._publisher.publish(output)
+        if self._mask_enabled:
+            # 必须在已遮罩的 /scan 发出之后才确认；周期重发
+            # 同时作为 task_planner 的 scan_filter 存活心跳。
+            self._mask_ready = True
+            self._publish_mask_ready(True)
+
+    def _publish_mask_ready(self, ready):
+        msg = Bool()
+        msg.data = bool(ready)
+        self._ready_pub.publish(msg)
 
 
 def main():

@@ -36,6 +36,31 @@ def test_front_sector_masked_when_gripped():
     assert filtered[0] == 1.0             # 正后方保留
 
 
+def test_gripped_mask_catches_test17_oblique_walker_without_hiding_side_wall():
+    """近距离斜抓 walker 可越过 ±45°，但更远/更侧面的门框仍应保留。"""
+    common = dict(
+        min_range=0.06,
+        max_range=4.0,
+        angle_increment=math.radians(1.0),
+        mask_center_rad=0.0,
+        mask_half_rad=math.radians(45.0),
+    )
+
+    # test17.5 实测残余簇约 -60°、0.32m；它是抓住的 walker，不应进入
+    # Nav2 costmap 或 MOVE 的 ±50..120° 侧向安全门。
+    oblique_walker = filter_ranges(
+        [0.32], angle_min=math.radians(-60.0), **common)
+    assert math.isinf(oblique_walker[0])
+
+    # 同方向但更远的环境特征，以及真正侧面的近障碍，仍供定位/门框安全使用。
+    far_wall = filter_ranges(
+        [1.0], angle_min=math.radians(-60.0), **common)
+    side_wall = filter_ranges(
+        [0.32], angle_min=math.radians(-75.0), **common)
+    assert far_wall == [1.0]
+    assert side_wall == [0.32]
+
+
 def test_no_mask_by_default():
     ranges = [1.0] * 10
     assert filter_ranges(ranges, 0.06, 4.0) == ranges

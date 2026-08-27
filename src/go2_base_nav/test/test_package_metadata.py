@@ -18,8 +18,10 @@ def test_package_declares_runtime_dependencies():
         "nav2_collision_monitor",
         "nav2_common",
         "nav2_map_server",
+        "nav2_msgs",
         "nav2_regulated_pure_pursuit_controller",
         "nav2_rviz_plugins",
+        "nav2_smac_planner",
         "nav2_velocity_smoother",
         "pcl_ros",
         "pointcloud_to_laserscan",
@@ -31,6 +33,7 @@ def test_package_declares_runtime_dependencies():
         "rviz2",
         "sensor_msgs",
         "slam_toolbox",
+        "std_msgs",
         "tf2_ros",
         "unitree_api",
     } <= dependencies

@@ -20,7 +20,15 @@
 import math
 
 import rclpy
+from rclpy.clock import Clock
+from rclpy.clock_type import ClockType
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool, Float32
 
@@ -55,6 +63,7 @@ class GripWatch(Node):
         # 启动宽限：gripped 变 true 后等臂到位稳定再开始监控
         # （2026-08-25 实测：CATCH 完成仅 0.65s 就误报脱手，臂还没到位）
         self.declare_parameter('startup_grace_s', 2.0)
+        self.declare_parameter('scan_timeout_s', 1.0)
         self.declare_parameter('min_range', 0.06)   # 与 scan_filter 一致，滤机身噪声
         # absent 极性（夹住=扇区无读数）：出现 < appear_max_m 的读数 → 疑似脱手
         # 2026-08-24 标定结论：实测夹住时有 0.38m 近读数 → 用 'present'
@@ -70,6 +79,14 @@ class GripWatch(Node):
             float(self.get_parameter('watch_half_angle_deg').value))
         self._hold_max = float(self.get_parameter('hold_max_m').value)
         self._grace = float(self.get_parameter('lost_grace_s').value)
+        self._startup_grace = float(
+            self.get_parameter('startup_grace_s').value)
+        self._scan_timeout = float(
+            self.get_parameter('scan_timeout_s').value)
+        if not math.isfinite(self._scan_timeout) or self._scan_timeout <= 0.0:
+            raise ValueError(
+                'scan_timeout_s must be finite and greater than zero')
+        self._watchdog_clock = Clock(clock_type=ClockType.STEADY_TIME)
         self._min_range = float(self.get_parameter('min_range').value)
         self._polarity = str(self.get_parameter('hold_polarity').value)
         self._appear_max = float(self.get_parameter('appear_max_m').value)
@@ -79,33 +96,54 @@ class GripWatch(Node):
         self._gripped_since = None  # 启动宽限用
         self._lost_since = None
         self._lost = False
+        self._ready = False
+        self._last_scan_at = None
+
+        gripped_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
 
         self.create_subscription(
             LaserScan,
             self.get_parameter('scan_topic').value, self._on_scan, 10)
         self.create_subscription(
-            Bool, '/walker_gripped', self._on_gripped, 10)
+            Bool, '/walker_gripped', self._on_gripped, gripped_qos)
         self.lost_pub = self.create_publisher(Bool, '/walker_lost', 10)
+        self.ready_pub = self.create_publisher(
+            Bool, '/grip_watch/ready', gripped_qos)
         # 前向扇区最近距离始终发布：脱手后自动恢复（NavigateToPoint RECOVER
         # 阶段）需要它闭环开回 walker 旁
         self.range_pub = self.create_publisher(Float32, '/walker_front_range', 10)
-        self.create_timer(0.1, self._tick)
+        self._publish_ready(False)
+        self.create_timer(0.1, self._tick, clock=self._watchdog_clock)
         self.get_logger().info(
             f'grip_watch 就绪: 正前方 ±{math.degrees(self._half):.0f}° 扇区, '
             f'极性 {self._polarity}（absent=出现<{self._appear_max}m 判脱手 / '
             f'present=最近>{self._hold_max}m 判脱手）, 宽限 {self._grace} s')
 
     def _on_gripped(self, msg):
+        was_gripped = self._gripped
         self._gripped = bool(msg.data)
         if not self._gripped:
             self._lost = False
+            self._ready = False
             self._lost_since = None
             self._gripped_since = None
+            self._last_scan_at = None
             self._publish(False)
-        else:
-            self._gripped_since = self.get_clock().now()
+            self._publish_ready(False)
+        elif not was_gripped:
+            self._ready = False
+            self._gripped_since = self._watchdog_clock.now()
+            self._last_scan_at = None
+            self._publish_ready(False)
 
     def _on_scan(self, msg):
+        now = self._watchdog_clock.now()
+        self._last_scan_at = now
         nearest = sector_min_range(msg.ranges, msg.angle_min,
                                    msg.angle_increment, self._half,
                                    self._min_range)
@@ -116,11 +154,11 @@ class GripWatch(Node):
             return
         # 启动宽限：gripped 变 true 后等臂到位稳定再监控
         if self._gripped_since is not None:
-            elapsed = (self.get_clock().now()
-                       - self._gripped_since).nanoseconds / 1e9
-            if elapsed < float(self.get_parameter('startup_grace_s').value):
+            elapsed = (now - self._gripped_since).nanoseconds / 1e9
+            if elapsed < self._startup_grace:
+                self._ready = False
+                self._publish_ready(False)
                 return
-        now = self.get_clock().now()
         if self._polarity == 'absent':
             # 夹住 = 扇区无读数；出现近读数 = walker 被留下 → 疑似脱手
             suspect = nearest < self._appear_max
@@ -131,7 +169,11 @@ class GripWatch(Node):
             suspect = nearest >= self._hold_max
         if not suspect:
             self._lost_since = None
+            self._ready = True
+            self._publish_ready(True)
             return
+        self._ready = False
+        self._publish_ready(False)
         if self._lost_since is None:
             self._lost_since = now
             return
@@ -147,9 +189,40 @@ class GripWatch(Node):
         msg.data = lost
         self.lost_pub.publish(msg)
 
+    def _publish_ready(self, ready):
+        msg = Bool()
+        msg.data = bool(ready)
+        self.ready_pub.publish(msg)
+
     def _tick(self):
-        if self._gripped:
-            self._publish(self._lost)
+        if not self._gripped:
+            return
+
+        now = self._watchdog_clock.now()
+        startup_elapsed = (
+            self._gripped_since is None
+            or (now - self._gripped_since).nanoseconds / 1e9
+            >= self._startup_grace
+        )
+        if not self._lost and startup_elapsed:
+            scan_age = (
+                None if self._last_scan_at is None
+                else (now - self._last_scan_at).nanoseconds / 1e9
+            )
+            if scan_age is None or scan_age >= self._scan_timeout:
+                self._lost = True
+                self._ready = False
+                self._lost_since = None
+                reason = (
+                    '从未收到 scan'
+                    if scan_age is None
+                    else f'scan 已 {scan_age:.2f}s 无更新'
+                )
+                self.get_logger().warn(
+                    f'grip_watch: {reason}，fail-closed 判定脱手')
+
+        self._publish(self._lost)
+        self._publish_ready(self._ready and not self._lost)
 
 
 def main():

@@ -282,9 +282,8 @@ local_costmap:
       plugins: ["obstacle_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        # 2026-08-24 实测（test5）：walker 旁有障碍物时 0.30m 膨胀把实际可通行
-        # 空间全吃掉（0.9m 通道只剩 0.3m < footprint 半宽），Nav2 拒不动弹。
-        # Go2 实际宽度 0.4m。用户评 0.15 太激进，取 0.20 折中。
+        # Local collision control keeps the proven 0.30 m field around the
+        # physical robot; the wider center-bias field is global-only below.
         cost_scaling_factor: 1.0
         inflation_radius: 0.30
       obstacle_layer:
@@ -361,9 +360,11 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        # 2026-08-24 实测（test5）：同 local costmap，0.30→0.20
+        # Make opposing wall costs overlap through the doorway so the
+        # cost-aware TowGrid planner prefers the center of the passage.
+        # This is global-only; local collision control remains at 0.30 m.
         cost_scaling_factor: 1.0
-        inflation_radius: 0.30
+        inflation_radius: 0.45
       always_send_full_costmap: True
 
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
@@ -385,13 +386,21 @@ planner_server:
   ros__parameters:
     use_sim_time: false
     expected_planner_frequency: 20.0
-    planner_plugins: ["GridBased"]
+    planner_plugins: ["GridBased", "TowGrid"]
     costmap_update_timeout: 1.0
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.5
       use_astar: false
       allow_unknown: true
+    TowGrid:
+      plugin: "nav2_smac_planner::SmacPlanner2D"
+      tolerance: 0.0
+      downsample_costmap: false
+      allow_unknown: false
+      max_planning_time: 2.0
+      cost_travel_multiplier: 2.0
+      use_final_approach_orientation: false
 
 smoother_server:
   ros__parameters:
