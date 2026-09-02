@@ -4,7 +4,7 @@
   * 夹住时 walker 在正前方 ~0.38m 处有稳定近读数（随狗一起动）；
   * 脱手后 walker 被留在原地，狗继续倒开 → 读数变远（0.5m 后 ~0.62m）。
   * 实测两簇分布：夹住 0.384±0.003m / 脱手 0.616±0.002m，间距 232mm，
-    阈值取中点 0.5m（hold_max_m）。
+    阈值取标定中点 0.483m（2026-09-02 L1）。
 
 机制：
   * /walker_gripped = true（拖行中）才监测；
@@ -57,7 +57,7 @@ class GripWatch(Node):
         # （/scan 在 gripped=true 时被 scan_filter 把正前方 ±45° 置 inf，
         # grip_watch 盯的 ±20° 全在里面，用 /scan 会立即误报脱手）
         self.declare_parameter('watch_half_angle_deg', 10.0)  # 2026-09-02 L1 扫描实测：10° 分离度最优
-        self.declare_parameter('hold_max_m', 0.5)   # present 极性：夹住时 walker 必在此距离内
+        self.declare_parameter('hold_max_m', 0.483)   # 2026-09-02 L1 标定中点
         # （2026-08-24 A/B 标定：夹住 0.384±0.003m / 脱手 0.616±0.002m，取中点）
         self.declare_parameter('lost_grace_s', 0.5)
         # 启动宽限：gripped 变 true 后等臂到位稳定再开始监控
