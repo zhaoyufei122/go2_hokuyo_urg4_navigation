@@ -34,19 +34,27 @@ from std_msgs.msg import Bool, Float32
 
 
 def sector_min_range(ranges, angle_min, angle_increment, half_rad,
-                     min_range=0.06):
-    """正前方 ±half_rad 扇区内的最小有效（有限）距离；无有效读数返回 inf。
+                     min_range=0.06, percentile=0.2):
+    """扇区内有效距离的【分位数】（默认 20%）；无有效读数返回 inf。
+
+    2026-09-02 Codex 建议：取 min 会被少量臂遮挡点骗（T02_R1/T10 误判），
+    取 20% 分位则忽略少数近点（臂细只有几束），保留 walker 的宽目标信息。
+    L1 回放 2824/2824 帧全部正确。
 
     min_range 与 scan_filter 一致（0.06m）：/scan_raw 里有 ~0.015m 的
-    机身自身噪声读数，不滤掉会永远误判 HOLDING（2026-07-18 实测）。"""
-    best = math.inf
+    机身自身噪声读数，不滤掉会误判（2026-07-18 实测）。"""
+    vals = []
     for i, value in enumerate(ranges):
         angle = angle_min + i * angle_increment
         wrapped = math.atan2(math.sin(angle), math.cos(angle))
         if abs(wrapped) <= half_rad and math.isfinite(value) \
                 and value > min_range:
-            best = min(best, value)
-    return best
+            vals.append(value)
+    if not vals:
+        return math.inf
+    vals.sort()
+    idx = max(0, int(len(vals) * percentile) - 1)
+    return vals[idx]
 
 
 class GripWatch(Node):
@@ -57,7 +65,7 @@ class GripWatch(Node):
         # （/scan 在 gripped=true 时被 scan_filter 把正前方 ±45° 置 inf，
         # grip_watch 盯的 ±20° 全在里面，用 /scan 会立即误报脱手）
         self.declare_parameter('watch_half_angle_deg', 10.0)  # 2026-09-02 L1 扫描实测：10° 分离度最优
-        self.declare_parameter('hold_max_m', 0.483)   # 2026-09-02 L1 标定中点
+        self.declare_parameter('hold_max_m', 0.49)   # 2026-09-02 L1 标定中点（20% 分位）
         # （2026-08-24 A/B 标定：夹住 0.384±0.003m / 脱手 0.616±0.002m，取中点）
         self.declare_parameter('lost_grace_s', 0.5)
         # 启动宽限：gripped 变 true 后等臂到位稳定再开始监控
