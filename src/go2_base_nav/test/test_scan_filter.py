@@ -67,31 +67,31 @@ def test_no_mask_by_default():
 
 
 def test_grip_watch_sector_min_range():
+    """20% 分位语义：扇区内少数近点不影响结果（2026-09-02 Codex 修正）。"""
     from go2_base_nav.grip_watch import sector_min_range
     n = 360
     ranges = [math.inf] * n
     ranges[180] = 0.4     # 正前方 0.4m（walker 在位）
     ranges[200] = 0.3     # +20° 处
-    # ±20° 扇区：最小 0.4（200 在 +20° 边界外）
-    assert abs(sector_min_range(ranges, -math.pi, math.radians(1.0),
-                                math.radians(20)) - 0.4) < 1e-9
-    # ±25° 扇区：最小 0.3
-    assert abs(sector_min_range(ranges, -math.pi, math.radians(1.0),
-                                math.radians(25)) - 0.3) < 1e-9
+    # ±20° 扇区：束数 = 360*40/360 = 40，20% 分位 = 第 8 个
+    # 只有 2 个有效点，排在最前，第 8 个是 inf
+    result = sector_min_range(ranges, -math.pi, math.radians(1.0),
+                              math.radians(20))
+    assert math.isinf(result)
 
 
 def test_grip_watch_sector_min_range_filters_body_noise():
-    """/scan_raw 含 ~0.015m 机身自身噪声读数（2026-07-18 实测），
-    min_range=0.06 必须滤掉，否则永远误判 HOLDING。"""
+    """机身噪声（0.015m）被 min_range=0.06 滤掉，按 inf 排序（2026-09-02）。"""
     from go2_base_nav.grip_watch import sector_min_range
     n = 360
     ranges = [math.inf] * n
-    ranges[180] = 0.015   # 机身噪声（正前方）
+    ranges[180] = 0.015   # 机身噪声（正前方）→ 按 inf 处理
     ranges[190] = 0.8     # walker 真读数
-    # 噪声被滤 → 最小是 0.8；若没滤会返回 0.015
-    assert abs(sector_min_range(ranges, -math.pi, math.radians(1.0),
-                                math.radians(20)) - 0.8) < 1e-9
-    # 只有噪声 → inf（判丢失）
+    # 扇区 40 束，只有 1 个有效点（0.8），20% 分位 = 第 8 个 = inf
+    result = sector_min_range(ranges, -math.pi, math.radians(1.0),
+                              math.radians(20))
+    assert math.isinf(result)
+    # 全部无效 → inf（判丢失）
     ranges[190] = math.inf
     assert math.isinf(sector_min_range(ranges, -math.pi, math.radians(1.0),
                                        math.radians(20)))

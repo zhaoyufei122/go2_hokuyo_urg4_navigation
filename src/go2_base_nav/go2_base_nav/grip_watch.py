@@ -35,11 +35,11 @@ from std_msgs.msg import Bool, Float32
 
 def sector_min_range(ranges, angle_min, angle_increment, half_rad,
                      min_range=0.06, percentile=0.2):
-    """扇区内有效距离的【分位数】（默认 20%）；无有效读数返回 inf。
+    """扇区内所有束的【分位数】距离（默认 20%）；无有效读数返回 inf。
 
-    2026-09-02 Codex 建议：取 min 会被少量臂遮挡点骗（T02_R1/T10 误判），
-    取 20% 分位则忽略少数近点（臂细只有几束），保留 walker 的宽目标信息。
-    L1 回放 2824/2824 帧全部正确。
+    2026-09-02 Codex 修正：必须在【全部束】上排序（无效束/噪声束按 inf
+    计入），否则臂是仅有回波时仍被当成 walker。只在有效回波里取分位
+    是错的（实测 L2 T01 RELEASED 仅 2/101 帧正确）。
 
     min_range 与 scan_filter 一致（0.06m）：/scan_raw 里有 ~0.015m 的
     机身自身噪声读数，不滤掉会误判（2026-07-18 实测）。"""
@@ -47,9 +47,13 @@ def sector_min_range(ranges, angle_min, angle_increment, half_rad,
     for i, value in enumerate(ranges):
         angle = angle_min + i * angle_increment
         wrapped = math.atan2(math.sin(angle), math.cos(angle))
-        if abs(wrapped) <= half_rad and math.isfinite(value) \
-                and value > min_range:
+        if abs(wrapped) > half_rad:
+            continue
+        # 所有束参与排序；无效/噪声按 inf 处理（排到尾部）
+        if math.isfinite(value) and value > min_range:
             vals.append(value)
+        else:
+            vals.append(math.inf)
     if not vals:
         return math.inf
     vals.sort()

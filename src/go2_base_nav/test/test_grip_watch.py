@@ -418,3 +418,44 @@ def test_present_polarity_keeps_hold_min_unused():
 
     assert watch._lost is False
     assert watch._lost_since is None
+
+
+def test_arm_occlusion_narrow_beams_not_held():
+    """臂窄遮挡回归（2026-09-02 Codex）：扇区内大部分束无回波（inf），
+    只有少数几束是臂的近读数（0.18m）——20% 分位应判为 inf/远处（RELEASED），
+    不是 0.18m（HELD）。这正是"臂是唯一回波源"的被漏判场景。"""
+    import math
+    from go2_base_nav.grip_watch import sector_min_range
+    # 真实 Hokuyo 分辨率：720 束，0.5°/束
+    n = 720
+    angle_min = -math.pi
+    angle_inc = 2 * math.pi / n
+    half = math.radians(10)
+    # 扇区内约 40 束（720 × 20/360），只有 5 束是臂的 0.18m
+    ranges = [math.inf] * n
+    for i in range(358, 363):  # 扇区中央 5 束是臂
+        ranges[i] = 0.18
+    result = sector_min_range(ranges, angle_min, angle_inc, half,
+                              min_range=0.06, percentile=0.2)
+    # 扇区 ~40 束，20% 分位 = 第 8 个。臂只有 5 束 → 第 8 个是 inf
+    assert result > 0.5, \
+        f'臂窄遮挡被误判为 HELD（result={result:.3f}m），应 > 0.5m'
+
+
+def test_walker_wide_cluster_detected_as_held():
+    """walker 宽目标回归：扇区内大部分束是 walker 的 0.38m 读数，
+    20% 分位应正确判 HELD。"""
+    import math
+    from go2_base_nav.grip_watch import sector_min_range
+    n = 720
+    angle_min = -math.pi
+    angle_inc = 2 * math.pi / n
+    half = math.radians(10)
+    # 扇区 ~40 束，其中 30 束是 walker 的 0.38m
+    ranges = [math.inf] * n
+    for i in range(345, 375):
+        ranges[i] = 0.38
+    result = sector_min_range(ranges, angle_min, angle_inc, half,
+                              min_range=0.06, percentile=0.2)
+    assert 0.35 < result < 0.45, \
+        f'walker 宽目标没被正确检测（result={result:.3f}m），应 ~0.38m'
