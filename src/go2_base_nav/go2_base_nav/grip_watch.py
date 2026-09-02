@@ -184,17 +184,21 @@ class GripWatch(Node):
             self._ready = True
             self._publish_ready(True)
             return
-        self._ready = False
-        self._publish_ready(False)
+        # A sub-grace suspect is classification evidence, not a sensor-health
+        # failure. Keep an already-confirmed grip ready until loss is accepted.
+        # Before the first holding scan, _ready is still false as required.
+        self._publish_ready(self._ready)
         if self._lost_since is None:
             self._lost_since = now
             return
         if (now - self._lost_since).nanoseconds / 1e9 >= self._grace:
             self._lost = True
+            self._ready = False
             self.get_logger().warn(
                 f'grip_watch: 脱手！极性={self._polarity} '
                 f'扇区最近读数={nearest:.2f}m 持续>{self._grace}s')
             self._publish(True)
+            self._publish_ready(False)
 
     def _publish(self, lost):
         msg = Bool()

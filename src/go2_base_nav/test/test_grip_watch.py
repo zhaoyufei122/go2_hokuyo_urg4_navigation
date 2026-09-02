@@ -219,6 +219,7 @@ def test_stale_scan_fails_closed_and_latches_lost():
     grip_watch.GripWatch._tick(watch)
     assert watch._lost is True
     assert watch.lost_publications[-1] is True
+    assert watch.ready_publications[-1] is False
 
     grip_watch.GripWatch._on_scan(watch, _scan(0.4))
     assert watch._lost is True
@@ -236,6 +237,7 @@ def test_scan_is_stale_at_exact_timeout_boundary():
 
     assert watch._lost is True
     assert watch.lost_publications[-1] is True
+    assert watch.ready_publications[-1] is False
 
 
 def test_scan_filter_acknowledges_only_after_a_masked_scan_is_published():
@@ -286,6 +288,23 @@ def test_grip_watch_ready_requires_a_post_grace_holding_scan():
     assert watch.ready_publications[-1] is True
 
     grip_watch.GripWatch._on_scan(watch, _scan(0.70))
+    assert watch.ready_publications[-1] is True
+    assert watch._lost is False
+
+
+def test_persistent_suspect_revokes_latched_ready_at_loss_grace():
+    clock = _FakeClock()
+    watch = _watch(clock)
+    grip_watch.GripWatch._on_gripped(watch, _bool(True))
+    clock.advance(2.1)
+    grip_watch.GripWatch._on_scan(watch, _scan(0.38))
+    assert watch.ready_publications[-1] is True
+
+    grip_watch.GripWatch._on_scan(watch, _scan(0.70))
+    clock.advance(0.5)
+    grip_watch.GripWatch._on_scan(watch, _scan(0.70))
+
+    assert watch._lost is True
     assert watch.ready_publications[-1] is False
 
 
@@ -360,10 +379,12 @@ def test_scan_detection_uses_steady_time_while_ros_clock_is_frozen():
     grip_watch.GripWatch._on_scan(watch, _scan(0.8))
     assert watch._last_scan_at.nanoseconds == 2_000_000_000
     assert watch._lost_since.nanoseconds == 2_000_000_000
+    assert watch.ready_publications[-1] is False
 
     watchdog_clock.advance(0.5)
     grip_watch.GripWatch._on_scan(watch, _scan(0.8))
     assert watch._lost is True
+    assert watch.ready_publications[-1] is False
 
 
 def test_false_clears_lost_and_monitoring_state():
