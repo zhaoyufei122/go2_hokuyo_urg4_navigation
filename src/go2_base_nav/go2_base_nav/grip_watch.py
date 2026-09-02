@@ -56,7 +56,7 @@ class GripWatch(Node):
         self.declare_parameter('scan_topic', '/scan_raw')  # 必须看未遮蔽的原始数据
         # （/scan 在 gripped=true 时被 scan_filter 把正前方 ±45° 置 inf，
         # grip_watch 盯的 ±20° 全在里面，用 /scan 会立即误报脱手）
-        self.declare_parameter('watch_half_angle_deg', 20.0)
+        self.declare_parameter('watch_half_angle_deg', 10.0)  # 2026-09-02 L1 扫描实测：10° 分离度最优
         self.declare_parameter('hold_max_m', 0.5)   # present 极性：夹住时 walker 必在此距离内
         # （2026-08-24 A/B 标定：夹住 0.384±0.003m / 脱手 0.616±0.002m，取中点）
         self.declare_parameter('lost_grace_s', 0.5)
