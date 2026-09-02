@@ -57,7 +57,7 @@ def sector_min_range(ranges, angle_min, angle_increment, half_rad,
     if not vals:
         return math.inf
     vals.sort()
-    idx = max(0, int(len(vals) * percentile) - 1)
+    idx = max(0, math.ceil(len(vals) * percentile) - 1)
     return vals[idx]
 
 
