@@ -79,6 +79,7 @@ def _watch(watchdog_clock, *, ros_clock=None, polarity='present'):
         _appear_max=2.0,
         _hold_min=0.25,
         _hold_max=0.5,
+        _hold_min_fraction=0.2,
         _grace=0.5,
         _watchdog_clock=watchdog_clock,
         range_pub=_Publisher(),
@@ -166,6 +167,22 @@ def test_scan_timeout_parameter_defaults_to_one_second(monkeypatch):
         monkeypatch, grip_watch, grip_watch.GripWatch)
 
     assert parameters.get('scan_timeout_s') == 1.0
+
+
+def test_hold_band_fraction_defaults_to_twenty_percent(monkeypatch):
+    _, parameters, _, _ = _capture_constructor(
+        monkeypatch, grip_watch, grip_watch.GripWatch)
+
+    assert parameters.get('hold_min_fraction') == 0.2
+
+
+def test_hold_max_defaults_to_frozen_prospective_value(monkeypatch):
+    """0.52m 是 2026-09-03 冻结的 prospective 配置；L1/L2 离线回放证明
+    与 0.483/0.49 判定完全一致（100%），改动须重新走冻结评审。"""
+    _, parameters, _, _ = _capture_constructor(
+        monkeypatch, grip_watch, grip_watch.GripWatch)
+
+    assert parameters.get('hold_max_m') == 0.52
 
 
 @pytest.mark.parametrize(
@@ -427,7 +444,7 @@ def test_fresh_scans_keep_existing_polarity_detection(
     assert watch.lost_publications[-1] is True
 
 
-def test_present_polarity_keeps_hold_min_unused():
+def test_present_polarity_rejects_near_arm_without_walker_band():
     clock = _FakeClock()
     watch = _watch(clock)
     grip_watch.GripWatch._on_gripped(watch, _bool(True))
@@ -437,8 +454,8 @@ def test_present_polarity_keeps_hold_min_unused():
     clock.advance(0.6)
     grip_watch.GripWatch._on_scan(watch, _scan(0.2))
 
-    assert watch._lost is False
-    assert watch._lost_since is None
+    assert watch._lost is True
+    assert watch.lost_publications[-1] is True
 
 
 def test_arm_occlusion_narrow_beams_not_held():

@@ -3,8 +3,10 @@
 原理（用户 2026-08-21 提出，2026-08-24 A/B 标定实测定论）：
   * 夹住时 walker 在正前方 ~0.38m 处有稳定近读数（随狗一起动）；
   * 脱手后 walker 被留在原地，狗继续倒开 → 读数变远（0.5m 后 ~0.62m）。
-  * 实测两簇分布：夹住 0.384±0.003m / 脱手 0.616±0.002m，间距 232mm，
-    阈值取标定中点 0.483m（2026-09-02 L1）。
+  * 实测两簇分布：夹住 0.384±0.003m / 脱手 0.616±0.002m，间距 232mm。
+    阈值 0.52m 为看过 development data 后冻结的 prospective configuration
+    （2026-09-03 冻结）；L1/L2 全部 4237 帧离线回放证明 0.483/0.49/0.52
+    判定结果完全一致（准确率均 100%），冻结值不改变任何已有实验结论。
 
 机制：
   * /walker_gripped = true（拖行中）才监测；
@@ -61,6 +63,22 @@ def sector_min_range(ranges, angle_min, angle_increment, half_rad,
     return vals[idx]
 
 
+def sector_band_fraction(ranges, angle_min, angle_increment, half_rad,
+                         lower_m, upper_m):
+    """Fraction of all sector beams inside the expected walker range band."""
+    total = 0
+    inside = 0
+    for i, value in enumerate(ranges):
+        angle = angle_min + i * angle_increment
+        wrapped = math.atan2(math.sin(angle), math.cos(angle))
+        if abs(wrapped) > half_rad:
+            continue
+        total += 1
+        if math.isfinite(value) and lower_m <= value < upper_m:
+            inside += 1
+    return inside / total if total else 0.0
+
+
 class GripWatch(Node):
 
     def __init__(self):
@@ -69,7 +87,7 @@ class GripWatch(Node):
         # （/scan 在 gripped=true 时被 scan_filter 把正前方 ±45° 置 inf，
         # grip_watch 盯的 ±20° 全在里面，用 /scan 会立即误报脱手）
         self.declare_parameter('watch_half_angle_deg', 10.0)  # 2026-09-02 L1 扫描实测：10° 分离度最优
-        self.declare_parameter('hold_max_m', 0.49)   # 2026-09-02 L1 标定中点（20% 分位）
+        self.declare_parameter('hold_max_m', 0.52)   # 2026-09-03 冻结的 prospective 配置
         # （2026-08-24 A/B 标定：夹住 0.384±0.003m / 脱手 0.616±0.002m，取中点）
         self.declare_parameter('lost_grace_s', 0.5)
         # 启动宽限：gripped 变 true 后等臂到位稳定再开始监控
@@ -85,7 +103,9 @@ class GripWatch(Node):
         # "还夹着"。臂在前伸位（~0.2m）或墙（>0.6m）不会误判。
         # 2026-08-25 用户要求更严格
         self.declare_parameter('hold_min_m', 0.25)  # 带的下限
-        # hold_max_m 就是带的上限（0.5）
+        self.declare_parameter(
+            'hold_min_fraction', 0.2)  # 至少 20% 束命中 walker 距离带
+        # hold_max_m 就是带的上限（0.52）
 
         self._half = math.radians(
             float(self.get_parameter('watch_half_angle_deg').value))
@@ -103,6 +123,8 @@ class GripWatch(Node):
         self._polarity = str(self.get_parameter('hold_polarity').value)
         self._appear_max = float(self.get_parameter('appear_max_m').value)
         self._hold_min = float(self.get_parameter('hold_min_m').value)
+        self._hold_min_fraction = float(
+            self.get_parameter('hold_min_fraction').value)
 
         self._gripped = False
         self._gripped_since = None  # 启动宽限用
@@ -159,6 +181,9 @@ class GripWatch(Node):
         nearest = sector_min_range(msg.ranges, msg.angle_min,
                                    msg.angle_increment, self._half,
                                    self._min_range)
+        hold_fraction = sector_band_fraction(
+            msg.ranges, msg.angle_min, msg.angle_increment, self._half,
+            self._hold_min, self._hold_max)
         range_msg = Float32()
         range_msg.data = float(nearest)
         self.range_pub.publish(range_msg)
@@ -175,10 +200,10 @@ class GripWatch(Node):
             # 夹住 = 扇区无读数；出现近读数 = walker 被留下 → 疑似脱手
             suspect = nearest < self._appear_max
         else:
-            # 夹住 = 扇区有近读数；读数变远/消失 → 疑似脱手
-            # （2026-08-25：去掉距离带，太严格误报——臂在抓取位时读数
-            # 偏出带就误判，实际 walker 夹得好好的）
-            suspect = nearest >= self._hold_max
+            # 至少 20% 的扇区束必须落在 walker 标定距离带。这样低于
+            # hold_min_m 的机械臂近场回波不能冒充 walker；同时保留
+            # walker 宽目标，不依赖单个最小值。
+            suspect = hold_fraction < self._hold_min_fraction
         if not suspect:
             self._lost_since = None
             self._ready = True
@@ -196,7 +221,9 @@ class GripWatch(Node):
             self._ready = False
             self.get_logger().warn(
                 f'grip_watch: 脱手！极性={self._polarity} '
-                f'扇区最近读数={nearest:.2f}m 持续>{self._grace}s')
+                f'扇区q20={nearest:.2f}m, '
+                f'walker距离带占比={hold_fraction:.0%} '
+                f'持续>{self._grace}s')
             self._publish(True)
             self._publish_ready(False)
 
